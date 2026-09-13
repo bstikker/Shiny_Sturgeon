@@ -1,26 +1,21 @@
 # =============================================================================
-# Sturgeon Live Classifier -- local Shiny GUI
+# Shiny-Sturgeon -- local Shiny GUI for live tumor classification
 #
 # Run with:  shiny::runApp("path/to/sturgeon_shiny_app")
 # (or open this file in RStudio and click "Run App")
 #
-# Replaces the SLURM/Windows/WSL-era scripts with a single local app:
+# Refactors scripts from Vermeulen et al. (Nature, 2023) with a single local app:
 #   - Setup tab: fill in paths once, save them for this case
 #   - Live Run tab: Start/Stop watches the MinKNOW output folder, merges new
 #     BAMs, runs Sturgeon, updates the confidence-over-time plot, and
 #     refreshes a CNV plot every N iterations (or on demand)
 #
-# Design notes (why it looks the way it does):
+# Design notes:
 #   - The original R script used a blocking `while(TRUE)` loop with
 #     Sys.sleep(). In Shiny that would freeze the UI and make Stop
 #     unresponsive. This app uses the standard non-blocking Shiny polling
 #     pattern (observe + invalidateLater) instead: the UI stays responsive
 #     at all times, and Stop takes effect immediately.
-#   - Processing (samtools/sturgeon calls) still runs synchronously within
-#     each poll tick, which briefly pauses the UI while an iteration is
-#     processed. That's a deliberate simplicity/robustness trade-off over
-#     fully async processing (which would need the `future`/`promises`
-#     packages) -- fewer moving parts to break mid-case. See README.md.
 #   - Every iteration and every error is written to the on-screen log AND
 #     kept as plain files on disk (classifier_progress.txt, processed
 #     file list, per-iteration folders), so nothing is lost if the app

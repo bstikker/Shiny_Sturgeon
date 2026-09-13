@@ -6,7 +6,7 @@
 #
 # This replaces:
 #   - live_processing_windows_minknow_basecalling.R  (Windows/WSL polling loop)
-#   - peroperative_seq_functions_shorter_Bernard_SLURM.R (function library)
+#   - peroperative_seq_functions_shorter.R (function library)
 #   - sturgeon_guppy_modkit_SLURM.sh                  (Sturgeon CLI wrapper)
 #
 # Dropped on purpose (dead weight for the current MinKNOW-does-basecalling
@@ -77,7 +77,7 @@ run_cmd <- function(cmd, log_fun = message) {
 #' Find (and optionally unclassified) BAM files for a barcode that have not
 #' been processed yet.
 #'
-#' Matches Bernard's current live-analysis script's folder layout: MinKNOW's
+#' Matches the current live-analysis script's folder layout: MinKNOW's
 #' realtime BAM output folder (named e.g. "bam_pass/", NOT "pod5/pass/" --
 #' this app used to assume the older WSL-era layout with an extra "pass/"
 #' level, which was wrong for the real Linux setup) contains "barcode<XX>/"
@@ -131,12 +131,9 @@ merge_and_sort_bams <- function(bam_files, iteration_dir, samtools_bin = "samtoo
 
 # ---- modkit preprocessing ----------------------------------------------------
 #
-# Confirmed from Bernard's current live-analysis script (not present in the
-# earlier scripts this app was first built from): sturgeon's inputtobed step
-# does NOT extract methylation calls from a BAM directly. Two explicit modkit
+# Two explicit modkit
 # steps happen first, per iteration, on that iteration's own new reads only:
 #   1. adjust-mods (5hmC "h" calls folded into 5mC "m") -- always required
-#      (confirmed by Bernard, not optional/toggleable)
 #   2. extract full -- writes a per-iteration modkit .txt file into a
 #      CUMULATIVE directory that just keeps growing, one file per iteration,
 #      nothing ever removed
@@ -232,11 +229,7 @@ run_sturgeon_predict <- function(bed_dir, model_file, predict_out_dir,
 # sturgeon-v2 has a different CLI shape than v1: it's a separate program
 # (`sturgeon-v2 single/multi ...`, not a subcommand of `sturgeon`), it takes
 # a single bed FILE via -i rather than a directory, and it writes a single
-# OUTPUT_FILE rather than writing into a directory. Per Bernard: v2 can
-# consume the exact same bed file v1's `inputtobed` step produces, so no
-# separate extraction pass is needed for v2 -- we just need to locate that
-# one .bed file inside whichever bed directory v1 (or the v2-specific
-# inputtobed call, if a different probes file was configured) wrote to.
+# OUTPUT_FILE rather than writing into a directory. 
 
 #' Find the single .bed file inputtobed wrote into `bed_dir`.
 find_single_bed_file <- function(bed_dir) {
