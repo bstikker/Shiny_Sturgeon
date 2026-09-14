@@ -4,7 +4,7 @@
 
 ![R](https://img.shields.io/badge/R-Shiny-blue) ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey) ![Status](https://img.shields.io/badge/status-research%20use-yellow)
 
-Shiny-Sturgeon watches a MinKNOW run folder as it fills up during sequencing, and automatically runs the methylation-extraction and tumor-classification pipeline on every new batch of reads, showing a live confidence-over-time plot and a periodically-updated copy-number (CNV) plot. It replaces a script-based workflow (an R polling script plus a SLURM-oriented shell wrapper) with a single local app that needs no cluster and no manual re-running.
+Shiny-Sturgeon watches a MinKNOW run folder as it fills up during sequencing, and automatically runs the methylation-extraction and tumor-classification pipeline on every new batch of reads, showing a live confidence-over-time plot and a periodically-updated copy-number (CNV) plot.
 
 > **Research use only.** This tool orchestrates existing classification software (Sturgeon / sturgeon-v2) and visualizes its output — it does not itself perform or validate any diagnostic classification. It has not been independently validated as a clinical decision-support device. Always cross-check results against your institution's standard pipeline before using them to inform patient care.
 
@@ -45,7 +45,7 @@ Because classification runs on the cumulative dataset each time, confidence natu
 - `samtools`
 - [`modkit`](https://github.com/nanoporetech/modkit)
 - [`sturgeon`](https://github.com/UMCUGenetics/sturgeon) (v1)
-- [`sturgeon-v2`](https://github.com/UMCUGenetics/sturgeon-v2) (optional, for dual-model classification)
+- [`sturgeon-v2`](https://github.com/UMCUGenetics/sturgeon-v2) (v2)
 
 **R** (4.x recommended) with:
 
@@ -166,7 +166,6 @@ v1 and v2 use different tumor-class naming conventions, and `color_translation.r
 
 ## Known limitations
 
-- **Synchronous processing.** Each iteration's pipeline steps run inside the same poll tick, briefly pausing the UI while they execute. This trades a small amount of UI smoothness for a much simpler, more robust implementation — no background process, no IPC, no async failure modes to debug mid-case.
 - **One R process, one active pipeline.** R is single-threaded: don't run two long-lived instances of this app (or this app alongside the old polling script) in the same R session/console — they'll compete for the same thread and can starve each other. Run separate pipelines in separate R processes if you need to compare them side by side.
 - **No v1↔v2 color mapping yet** (see above).
 
@@ -174,8 +173,8 @@ v1 and v2 use different tumor-class naming conventions, and `color_translation.r
 
 This app is a GUI/orchestration layer around existing tools — it does not implement any classification or basecalling itself:
 
-- [Sturgeon](https://github.com/UMCUGenetics/sturgeon) and [sturgeon-v2](TO BE UPDATED AFTER PUBLICATION) for 
-methylation-based tumor classification
+- [Sturgeon](https://github.com/UMCUGenetics/sturgeon) and [sturgeon-v2](https://github.com/UMCUGenetics/sturgeon-v2 
+- pending publication) for methylation-based tumor classification
 - [`modkit`](https://github.com/nanoporetech/modkit) for methylation call extraction
 - [QDNAseq](https://bioconductor.org/packages/QDNAseq/) / [DNAcopy](https://bioconductor.org/packages/DNAcopy/) for CNV binning and segmentation
 
