@@ -36,8 +36,6 @@ During intraoperative sequencing, MinKNOW basecalls, calls methylation, and alig
 5. updates a confidence-over-time plot and a top-calls table, and
 6. every few iterations, rebuilds a CNV plot from all reads processed so far.
 
-Because classification runs on the cumulative dataset each time, confidence naturally climbs as more data comes in over the course of a case — which is what makes the live trend meaningful.
-
 ## Requirements
 
 **External tools** (installed separately, e.g. in a conda environment):
