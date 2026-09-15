@@ -69,7 +69,7 @@ BiocManager::install("DNAcopy")
 ## Installation
 
 ```bash
-git clone https://github.com/<your-username>/Shiny-Sturgeon.git
+git clone https://github.com/bstikker/Shiny-Sturgeon.git
 cd Shiny-Sturgeon
 ```
 
