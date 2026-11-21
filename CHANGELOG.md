@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- Optional `class_mapping_v2` setting: a CSV mapping v2 class names to v1 class names, so v2 classes are drawn in their v1 color. The bundled `class_mapping_v2.csv` covers five classes (from the NEURON pipeline).
+- Support for the public sturgeon-v2 release, which writes a tab-separated `result.txt` into the `-o` folder with one row per random sampling (scores are averaged over samplings). The earlier single-file output still works.
+- Test suite (`tests/`, run with `Rscript tests/run_tests.R`) with synthetic fixtures and stand-in scripts for the external tools.
+- GitHub Actions workflow running the tests, an R syntax check, and synthetic BAMs through samtools and modkit 0.5.0.
+- `tools/make_synthetic_bams.py`: generates a synthetic MinKNOW-style `bam_pass/` folder with methylation tags.
+- `tools/make_demo_case.R`: builds a demo case with made-up scores; README screenshot made from it.
+- Conda environment files in `envs/` with the tool versions used by the NEURON pipeline.
+
+### Changed
+- `sturgeon_v2_file_type` is documented as `bed` (confirmed against sturgeon-v2's CLI) instead of a guess.
+
+### Fixed
+- README: QDNAseq is installed from Bioconductor, not CRAN; sturgeon-v2 links point to github.com/deRidderLab/sturgeon-v2.
+
 ## [1.0.0] - 2026-11-21
 
 First tagged release.
