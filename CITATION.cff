@@ -1,0 +1,86 @@
+cff-version: 1.2.0
+message: >-
+  If you use Shiny-Sturgeon, please cite the software using the metadata below.
+  If you use the Sturgeon v2 classifier through this app, please also cite the
+  Sturgeon V2 preprint (preferred-citation).
+title: "Shiny-Sturgeon"
+abstract: >-
+  A local Shiny GUI for live intraoperative Sturgeon methylation
+  classification of Oxford Nanopore sequencing runs.
+type: software
+version: 1.0.0
+license: MIT
+repository-code: "https://github.com/bstikker/Shiny_Sturgeon"
+keywords:
+  - nanopore
+  - methylation
+  - CNS tumor classification
+  - intraoperative
+  - Shiny
+authors:
+  - given-names: "Bernard"
+    family-names: "Stikker"
+preferred-citation:
+  type: article
+  title: "Sturgeon V2: a clinically applicable CNS tumor classifier trained on relabeled data"
+  journal: "medRxiv"
+  year: 2026
+  doi: "10.64898/2026.10.19.26365910"
+  url: "https://doi.org/10.64898/2026.10.19.26365910"
+  authors:
+    - given-names: "C."
+      family-names: "Vermeulen"
+    - given-names: "H."
+      name-particle: "van der"
+      family-names: "Ent"
+    - given-names: "S.L."
+      family-names: "Maas"
+    - given-names: "E.M."
+      family-names: "Bos"
+    - given-names: "K."
+      family-names: "Cammel"
+    - given-names: "A.D."
+      family-names: "Maier"
+    - given-names: "T."
+      family-names: "Mathiesen"
+    - given-names: "M.E.G."
+      family-names: "Kranendonk"
+    - given-names: "P."
+      family-names: "Wesseling"
+    - given-names: "D."
+      family-names: "Seinstra"
+    - given-names: "E.J."
+      family-names: "Kooi"
+    - given-names: "B."
+      family-names: "Stikker"
+    - given-names: "H.J."
+      family-names: "Dubbink"
+    - given-names: "M."
+      family-names: "Sie"
+    - given-names: "O.H.J."
+      family-names: "Eelkman Rooda"
+    - given-names: "E.W."
+      family-names: "Hoving"
+    - given-names: "N."
+      family-names: "Verburg"
+    - given-names: "M."
+      family-names: "Pagès-Gallego"
+    - given-names: "J."
+      family-names: "Hench"
+    - given-names: "S."
+      family-names: "Frank"
+    - given-names: "K."
+      family-names: "Aldape"
+    - given-names: "M."
+      family-names: "Quezado"
+    - given-names: "Z."
+      family-names: "Abdullaev"
+    - given-names: "O."
+      family-names: "Singh"
+    - given-names: "L."
+      family-names: "Kester"
+    - given-names: "B.B.J."
+      family-names: "Tops"
+    - given-names: "J."
+      name-particle: "de"
+      family-names: "Ridder"

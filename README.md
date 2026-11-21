@@ -23,6 +23,7 @@ Shiny-Sturgeon watches a MinKNOW run folder as it fills up during sequencing, an
 - [Running two classifier models (v1 + v2)](#running-two-classifier-models-v1--v2)
 - [Known limitations](#known-limitations)
 - [Acknowledgments](#acknowledgments)
+- [Citation](#citation)
 - [License](#license)
 
 ## What it does
@@ -69,8 +70,8 @@ BiocManager::install("DNAcopy")
 ## Installation
 
 ```bash
-git clone https://github.com/bstikker/Shiny-Sturgeon.git
-cd Shiny-Sturgeon
+git clone https://github.com/bstikker/Shiny_Sturgeon.git
+cd Shiny_Sturgeon
 ```
 
 Install the R packages listed above, then confirm the external tools are reachable:
@@ -103,7 +104,7 @@ All settings live in a YAML config, editable either by hand (`config_default.yml
 ## Usage
 
 ```r
-shiny::runApp("Shiny-Sturgeon")
+shiny::runApp("Shiny_Sturgeon")
 ```
 
 or open `app.R` in RStudio and click **Run App**.
@@ -171,10 +172,17 @@ v1 and v2 use different tumor-class naming conventions, and `color_translation.r
 
 This app is a GUI/orchestration layer around existing tools — it does not implement any classification or basecalling itself:
 
-- [Sturgeon](https://github.com/UMCUGenetics/sturgeon) and [sturgeon-v2](https://github.com/UMCUGenetics/sturgeon-v2 
-- pending publication) for methylation-based tumor classification
+- [Sturgeon](https://github.com/UMCUGenetics/sturgeon) and [sturgeon-v2](https://github.com/UMCUGenetics/sturgeon-v2) for methylation-based tumor classification (see [Citation](#citation))
 - [`modkit`](https://github.com/nanoporetech/modkit) for methylation call extraction
 - [QDNAseq](https://bioconductor.org/packages/QDNAseq/) / [DNAcopy](https://bioconductor.org/packages/DNAcopy/) for CNV binning and segmentation
+
+## Citation
+
+If you use the Sturgeon v2 classifier through this app, please cite:
+
+> Vermeulen C, van der Ent H, Maas SL, *et al.* Sturgeon V2: a clinically applicable CNS tumor classifier trained on relabeled data. *medRxiv* (2026). doi: [10.64898/2026.10.19.26365910](https://doi.org/10.64898/2026.10.19.26365910)
+
+To cite Shiny-Sturgeon itself, use the **"Cite this repository"** button on GitHub (generated from [`CITATION.cff`](CITATION.cff)).
 
 ## License
 
