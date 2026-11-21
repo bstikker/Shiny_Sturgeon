@@ -1,0 +1,23 @@
+# Conda environment for the external tools Shiny-Sturgeon calls:
+# samtools, modkit and Sturgeon v1.
+#
+#   conda env create -f envs/sturgeon.yml
+#
+# Versions are taken from the NEURON pipeline's container
+# (https://github.com/tgac-vumc/NEURON, singularity/sturgeon.yml).
+# They have not yet been checked against the machine Shiny-Sturgeon 1.0.0
+# was validated on -- see "Tested with" in the README.
+# Sturgeon v1 needs Python 3.8; sturgeon-v2 needs Python >= 3.10, so it has
+# its own environment (envs/sturgeon-v2.yml).
+name: sturgeon
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.8
+  - samtools=1.22.1
+  - ont-modkit=0.5.0
+  - git
+  - pip
+  - pip:
+      - git+https://github.com/UMCUGenetics/sturgeon.git

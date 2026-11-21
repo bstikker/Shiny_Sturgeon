@@ -1,0 +1,90 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  r-tests:
+    name: R syntax check and tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-${{ runner.os }}-${{ hashFiles('.github/workflows/tests.yml') }}
+
+      - name: Install R packages
+        run: |
+          install.packages("pak")
+          pak::pkg_install(c("shiny", "yaml", "testthat", "bioc::DNAcopy", "bioc::QDNAseq"))
+        shell: Rscript {0}
+
+      - name: Check that every R file parses
+        run: |
+          for (f in c(Sys.glob("*.R"), Sys.glob("tools/*.R"), Sys.glob("tests/*.R"), Sys.glob("tests/testthat/*.R"))) {
+            message("parse ", f)
+            invisible(parse(f))
+          }
+        shell: Rscript {0}
+
+      - name: Run tests
+        run: Rscript tests/run_tests.R
+
+      - name: Build the demo case
+        run: Rscript tools/make_demo_case.R "$RUNNER_TEMP/demo"
+
+  synthetic-data:
+    name: Synthetic BAMs through samtools and modkit
+    runs-on: ubuntu-24.04
+    env:
+      MODKIT_VERSION: v0.5.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install samtools, pysam and modkit
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq samtools
+          pip install pysam
+          curl -sSfL -o modkit.tgz \
+            "https://github.com/nanoporetech/modkit/releases/download/${MODKIT_VERSION}/modkit_${MODKIT_VERSION}_u16_x86_64.tar.gz"
+          mkdir -p modkit && tar -xzf modkit.tgz -C modkit
+          echo "$(dirname "$(find "$PWD/modkit" -name modkit -type f | head -1)")" >> "$GITHUB_PATH"
+
+      - name: Generate synthetic BAMs
+        run: |
+          python tools/make_synthetic_bams.py --out "$RUNNER_TEMP/bam_pass" \
+            --n-files 2 --reads-per-file 200 --gain 7 --loss 10
+          samtools quickcheck "$RUNNER_TEMP"/bam_pass/*/*.bam
+
+      - name: Run the app's samtools and modkit steps on them
+        run: |
+          cd "$RUNNER_TEMP"
+          samtools merge -f -o merged.bam bam_pass/barcode01/*.bam
+          samtools sort -o merged_srt.bam merged.bam
+          modkit adjust-mods --convert h m merged_srt.bam merged_srt_adjust.bam
+          modkit extract full -t 2 merged_srt_adjust.bam extract.txt
+          head -3 extract.txt
+          # 5hmC calls must be folded into 5mC: no "h" left, and some "m" calls present
+          col=$(head -1 extract.txt | tr '\t' '\n' | grep -nx call_code | cut -d: -f1)
+          test -n "$col"
+          cut -f"$col" extract.txt | sort | uniq -c
+          if cut -f"$col" extract.txt | grep -qx h; then echo "unexpected 5hmC calls left"; exit 1; fi
+          test "$(cut -f"$col" extract.txt | grep -cx m)" -gt 100

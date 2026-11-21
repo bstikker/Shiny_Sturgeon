@@ -1,0 +1,17 @@
+# Conda environment for sturgeon-v2 (optional second classifier).
+#
+#   conda env create -f envs/sturgeon-v2.yml
+#
+# Pinned to the same sturgeon-v2 commit as the NEURON pipeline
+# (https://github.com/tgac-vumc/NEURON). This version writes result.txt into
+# an output directory; Shiny-Sturgeon also handles the single-file output of
+# earlier versions.
+name: sturgeon-v2
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - git
+  - pip
+  - pip:
+      - git+https://github.com/deRidderLab/sturgeon-v2.git@d581abfbe2388f6dd1fb1896a14b4c14deadf759
