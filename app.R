@@ -86,6 +86,8 @@ ui <- fluidPage(
                      value = default_cfg$relevant_genes_bed, width = "100%"),
           textInput("color_translation_rds", "Class-to-color .rds",
                      value = default_cfg$color_translation_rds, width = "100%"),
+          textInput("class_mapping_v2", "v2-to-v1 class mapping .csv (optional, gives v2 classes their v1 color)",
+                     value = default_cfg$class_mapping_v2 %||% "", width = "100%"),
 
           h4("Sturgeon v2 (optional)"),
           helpText("Leave the model blank to run v1 only. Fill it in and the app runs",
@@ -104,7 +106,7 @@ ui <- fluidPage(
                      value = default_cfg$sturgeon_v2_num_cpgs %||% "", width = "100%"),
           numericInput("sturgeon_v2_num_samplings", "NUM_SAMPLINGS -- optional; leave blank for sturgeon-v2's default (1 random sampling)",
                         value = suppressWarnings(as.numeric(default_cfg$sturgeon_v2_num_samplings))),
-          textInput("sturgeon_v2_file_type", "FILE_TYPE flag for -f (best guess: \"bed\" -- verify)",
+          textInput("sturgeon_v2_file_type", "FILE_TYPE flag for -f (\"bed\" for this app's input)",
                      value = default_cfg$sturgeon_v2_file_type, width = "100%")
         )
       ),
@@ -185,6 +187,7 @@ server <- function(input, output, session) {
     progress_v2 = data.frame(),
     log_lines = character(0),
     color_translation = NULL,
+    class_mapping = NULL,
     bins = NULL,
     cnv_counter = 0,
     latest_cnv_bam = NULL,
@@ -216,6 +219,7 @@ server <- function(input, output, session) {
       cnvplot_reffile = input$cnvplot_reffile,
       relevant_genes_bed = input$relevant_genes_bed,
       color_translation_rds = input$color_translation_rds,
+      class_mapping_v2 = input$class_mapping_v2,
       model_file_v2 = input$model_file_v2,
       probes_file_v2 = input$probes_file_v2,
       sturgeon_v2_bin = input$sturgeon_v2_bin,
@@ -243,6 +247,7 @@ server <- function(input, output, session) {
     updateTextInput(session, "cnvplot_reffile", value = cfg$cnvplot_reffile %||% "")
     updateTextInput(session, "relevant_genes_bed", value = cfg$relevant_genes_bed %||% "")
     updateTextInput(session, "color_translation_rds", value = cfg$color_translation_rds %||% "")
+    updateTextInput(session, "class_mapping_v2", value = cfg$class_mapping_v2 %||% "")
     updateTextInput(session, "model_file_v2", value = cfg$model_file_v2 %||% "")
     updateTextInput(session, "probes_file_v2", value = cfg$probes_file_v2 %||% "")
     updateTextInput(session, "sturgeon_v2_bin", value = cfg$sturgeon_v2_bin %||% "sturgeon-v2")
@@ -301,6 +306,7 @@ server <- function(input, output, session) {
     tryCatch({
       rv$bins <- readRDS(cfg$bins_rds)
       rv$color_translation <- readRDS(cfg$color_translation_rds)
+      rv$class_mapping <- load_class_mapping(cfg$class_mapping_v2)
     }, error = function(e) {
       showModal(modalDialog(title = "Failed to load reference files",
                              conditionMessage(e), easyClose = TRUE))
@@ -560,7 +566,8 @@ server <- function(input, output, session) {
       return(invisible(NULL))
     }
     req(rv$color_translation)
-    plot_confidence_over_time(rv$progress_v2, rv$color_translation, plot_title = "Confidence over time -- Sturgeon v2")
+    plot_confidence_over_time(rv$progress_v2, rv$color_translation, plot_title = "Confidence over time -- Sturgeon v2",
+                                class_mapping = rv$class_mapping)
   })
 
   output$scoresTableV2 <- renderTable({
@@ -598,7 +605,8 @@ server <- function(input, output, session) {
       req(rv$cfg, cancelOutput = TRUE)
       validate(need(nzchar(rv$cfg$model_file_v2 %||% ""), "Sturgeon v2 is not configured for this case."))
       pdf(file)
-      plot_confidence_over_time(rv$progress_v2, rv$color_translation, plot_title = "Confidence over time -- Sturgeon v2")
+      plot_confidence_over_time(rv$progress_v2, rv$color_translation, plot_title = "Confidence over time -- Sturgeon v2",
+                                class_mapping = rv$class_mapping)
       dev.off()
     }
   )

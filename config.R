@@ -16,7 +16,7 @@ library(yaml)
 PATH_FIELDS <- c("bam_pass_folder", "output_folder", "samtools_bin", "modkit_bin",
                   "sturgeon_bin", "probes_file", "model_file_v1", "bins_rds",
                   "cnvplot_reffile", "relevant_genes_bed", "color_translation_rds",
-                  "model_file_v2", "probes_file_v2", "sturgeon_v2_bin")
+                  "class_mapping_v2", "model_file_v2", "probes_file_v2", "sturgeon_v2_bin")
 
 #' path.expand() every path-like field in a config list (see PATH_FIELDS).
 #' Bare command names with no "~" (e.g. "samtools") pass through unchanged.
@@ -70,11 +70,11 @@ validate_config <- function(cfg) {
     }
   }
 
-  # model_file_v2 / probes_file_v2 are optional -- only checked for existence
+  # model_file_v2 / probes_file_v2 / class_mapping_v2 are optional -- only checked for existence
   # if the user actually filled them in (blank means "v2 not used" / "v2
   # reuses the v1 probes file").
   file_fields <- c("probes_file", "model_file_v1", "bins_rds", "cnvplot_reffile",
-                    "color_translation_rds", "model_file_v2", "probes_file_v2")
+                    "color_translation_rds", "class_mapping_v2", "model_file_v2", "probes_file_v2")
   for (field in file_fields) {
     val <- cfg[[field]]
     if (!is.null(val) && nzchar(val) && !file.exists(val)) {

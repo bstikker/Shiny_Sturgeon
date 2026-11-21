@@ -36,6 +36,8 @@ bins_rds: ""                    # DNAcopy/QDNAseq bins .rds for CNV plotting
 cnvplot_reffile: ""              # bins_export.bed reference coverage file
 relevant_genes_bed: ""            # optional: gene labels overlay for CNV plot
 color_translation_rds: ""          # named list/vector: tumor class -> plot color
+class_mapping_v2: ""               # optional: CSV (v2_class,v1_class) so v2 classes get their v1 color,
+                                   # e.g. the bundled class_mapping_v2.csv (full path recommended)
 
 # --- Sturgeon v2 (optional) ---
 # Leave model_file_v2 blank to run v1 only. When filled in, the app runs
@@ -57,4 +59,4 @@ sturgeon_v2_bin: "sturgeon-v2"  # the sturgeon-v2 executable (or full path, e.g.
 sturgeon_v2_mode: "single"       # "single" or "multi" -- "single" = one sample at a time, matches this app's per-iteration use
 sturgeon_v2_num_cpgs: ""          # optional -- a number of CpG sites; blank = sturgeon-v2 uses all available sites
 sturgeon_v2_num_samplings: ""      # optional -- a number; blank = sturgeon-v2's default of 1 random sampling
-sturgeon_v2_file_type: "bed"        # best guess (v2's input is a bed file) -- verify against sturgeon-v2 docs
+sturgeon_v2_file_type: "bed"        # "bed" -- this app feeds sturgeon-v2 the bed file from inputtobed (sturgeon-v2 accepts bed or csv)

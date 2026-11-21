@@ -236,8 +236,16 @@ find_single_bed_file <- function(bed_dir) {
   find_single_file(bed_dir, "\\.bed$", "bed file")
 }
 
-#' Run sturgeon-v2 prediction against the bed file in `bed_dir`, writing a
-#' single result file at `output_file`.
+#' Run sturgeon-v2 prediction against the bed file in `bed_dir`, and return
+#' the path of the result file it wrote.
+#'
+#' `output_file` is passed to sturgeon-v2 as `-o`. Two sturgeon-v2 versions
+#' are in use, and they treat `-o` differently:
+#'   - earlier versions write a single comma-separated result FILE at that path;
+#'   - the public release (github.com/deRidderLab/sturgeon-v2) treats `-o` as an
+#'     output DIRECTORY and writes a tab-separated `result.txt` inside it.
+#' resolve_sturgeon_v2_output() finds the result in either case, so the same
+#' config works with both.
 #'
 #' NOTE: file_type is passed straight through from config. mode is "single"
 #' or "multi" per sturgeon-v2's usage; "single" (one sample at a time) is
@@ -268,10 +276,24 @@ run_sturgeon_v2_predict <- function(bed_dir, model_file, output_file, sturgeon_v
 
   run_cmd(cmd, log_fun)
 
-  if (!file.exists(output_file)) {
-    stop("sturgeon-v2 did not produce the expected result file: ", output_file)
+  resolve_sturgeon_v2_output(output_file)
+}
+
+#' Return the path of the result file sturgeon-v2 wrote for `-o output_path`:
+#' the path itself if it is a file (earlier sturgeon-v2 versions), or
+#' `output_path/result.txt` if it is a directory (the public release).
+resolve_sturgeon_v2_output <- function(output_path) {
+  if (dir.exists(output_path)) {
+    result_txt <- file.path(output_path, "result.txt")
+    if (!file.exists(result_txt)) {
+      stop("sturgeon-v2 wrote an output directory without result.txt: ", output_path)
+    }
+    return(result_txt)
   }
-  output_file
+  if (!file.exists(output_path)) {
+    stop("sturgeon-v2 did not produce the expected result file: ", output_path)
+  }
+  output_path
 }
 
 # ---- shared result parsing ---------------------------------------------------
@@ -284,17 +306,31 @@ run_sturgeon_v2_predict <- function(bed_dir, model_file, output_file, sturgeon_v
 #   v2: "<class1>,<class2>,...,probes\n0.0,0.00067,...,16178\n"
 # One shared parser handles both; only the metadata column name differs.
 
-#' Parse a single-row, wide-format Sturgeon result CSV (one column per class,
-#' plus one metadata column) into a tidy class/score data.frame.
+#' Parse a wide-format Sturgeon result file (one column per class, plus one
+#' metadata column) into a tidy class/score data.frame.
+#'
+#' The separator is detected from the header line: the public sturgeon-v2
+#' release writes tab-separated `result.txt`, everything else is
+#' comma-separated.
+#'
 #' @param metadata_column the one column to exclude (not a class) -- v1 uses
 #'   "number_probes", v2 uses "probes"
-parse_wide_sturgeon_csv <- function(result_csv, metadata_column) {
+#' @param average_rows if TRUE, more than one data row is allowed and the
+#'   score per class is the mean over rows. The public sturgeon-v2 writes one
+#'   row per random sampling (`-s`), and its own summary is that mean. If
+#'   FALSE (v1), anything other than exactly one row is an error.
+parse_wide_sturgeon_csv <- function(result_csv, metadata_column, average_rows = FALSE) {
+  header <- tryCatch(readLines(result_csv, n = 1, warn = FALSE),
+                     error = function(e) stop("Couldn't read ", result_csv, ": ", conditionMessage(e)))
+  sep <- if (length(header) == 1 && grepl("\t", header, fixed = TRUE)) "\t" else ","
+
   raw <- tryCatch(
-    read.csv(result_csv, stringsAsFactors = FALSE, check.names = FALSE),
-    error = function(e) stop("Couldn't read ", result_csv, " as CSV: ", conditionMessage(e))
+    read.table(result_csv, sep = sep, header = TRUE, stringsAsFactors = FALSE,
+               check.names = FALSE, quote = "\"", comment.char = ""),
+    error = function(e) stop("Couldn't read ", result_csv, " as a table: ", conditionMessage(e))
   )
   if (nrow(raw) < 1) stop("No data rows in ", result_csv)
-  if (nrow(raw) > 1) {
+  if (nrow(raw) > 1 && !isTRUE(average_rows)) {
     stop(result_csv, " has ", nrow(raw), " data rows -- expected exactly one (one sample per iteration). ",
          "If multi-row output is now expected, update parse_wide_sturgeon_csv().")
   }
@@ -305,9 +341,13 @@ parse_wide_sturgeon_csv <- function(result_csv, metadata_column) {
          "' -- columns found: ", paste(colnames(raw), collapse = ", "))
   }
 
-  data.frame(class = class_cols,
-             score = as.character(unlist(raw[1, class_cols], use.names = FALSE)),
-             stringsAsFactors = FALSE)
+  scores <- if (nrow(raw) == 1) {
+    as.character(unlist(raw[1, class_cols], use.names = FALSE))
+  } else {
+    as.character(vapply(class_cols, function(cl) mean(as.numeric(raw[[cl]])), numeric(1)))
+  }
+
+  data.frame(class = class_cols, score = scores, stringsAsFactors = FALSE)
 }
 
 #' Parse one iteration's Sturgeon v1 result CSV into a tidy two-column
@@ -318,7 +358,7 @@ parse_sturgeon_result <- function(result_csv) {
 
 #' Parse one iteration's sturgeon-v2 result file the same way.
 parse_sturgeon_v2_result <- function(result_file) {
-  parse_wide_sturgeon_csv(result_file, metadata_column = "probes")
+  parse_wide_sturgeon_csv(result_file, metadata_column = "probes", average_rows = TRUE)
 }
 
 # ---- progress tracking (data only -- no plotting side effects here) --------
@@ -353,18 +393,66 @@ update_progress <- function(progress, iteration_result, iteration_label, timesta
 #' (e.g. "Glioma IDH - A IDH - HG") that color_translation.rds is keyed by.
 #' Same class name always gets the same color (stable across iterations and
 #' across the v1/v2 plots), and different classes get visually distinct
-#' colors, unlike a flat grey fallback. This is NOT the same color a class
-#' gets in the v1 plot -- there's no v1/v2 class-name mapping to make that
-#' possible yet (see README).
+#' colors, unlike a flat grey fallback. v2 classes listed in the optional
+#' class mapping file (see load_class_mapping()) get their v1 color instead.
 fallback_class_color <- function(cls) {
   hue <- sum(utf8ToInt(cls)) %% 360
   grDevices::hcl(h = hue, c = 65, l = 50)
 }
 
+#' Read the optional v2 -> v1 class-name mapping: a CSV with columns
+#' `v2_class` and `v1_class`. Returns a named character vector
+#' (names = v2 class, values = v1 class), or NULL if `path` is blank.
+#' Only used to pick plot colors -- class names shown in plots and tables
+#' are never changed.
+load_class_mapping <- function(path) {
+  if (is.null(path) || !nzchar(path)) return(NULL)
+  df <- read.csv(path, stringsAsFactors = FALSE, check.names = FALSE, strip.white = TRUE)
+  missing_cols <- setdiff(c("v2_class", "v1_class"), colnames(df))
+  if (length(missing_cols) > 0) {
+    stop(path, " is missing column(s): ", paste(missing_cols, collapse = ", "),
+         " -- expected a CSV with columns v2_class,v1_class")
+  }
+  df <- df[nzchar(df$v2_class) & nzchar(df$v1_class), , drop = FALSE]
+  dups <- unique(df$v2_class[duplicated(df$v2_class)])
+  if (length(dups) > 0) {
+    stop(path, " maps these v2 classes more than once: ", paste(dups, collapse = ", "))
+  }
+  stats::setNames(df$v1_class, df$v2_class)
+}
+
+#' Plot color for one class: its own entry in color_translation if it has
+#' one, else the color of the v1 class it maps to (class_mapping), else the
+#' deterministic fallback color.
+class_color <- function(cls, color_translation, class_mapping = NULL) {
+  lookup <- function(name) {
+    # Look up by name membership first, not a bare `[[name]]` -- if
+    # color_translation is a plain named vector (not a list), `[[` on a
+    # missing name throws "subscript out of bounds" instead of returning
+    # NULL like a list would, which crashed this plot the first time a
+    # class name wasn't present in color_translation.rds.
+    if (is.null(color_translation) || is.null(name) || is.na(name) ||
+        !(name %in% names(color_translation))) {
+      return(NULL)
+    }
+    clr <- color_translation[[name]]
+    if (is.null(clr) || is.na(clr) || !nzchar(clr)) NULL else clr
+  }
+  clr <- lookup(cls)
+  if (is.null(clr) && !is.null(class_mapping) && cls %in% names(class_mapping)) {
+    clr <- lookup(class_mapping[[cls]])
+  }
+  if (is.null(clr)) clr <- fallback_class_color(cls)
+  clr
+}
+
 #' Render the confidence-over-time plot (base R graphics, matches the
 #' original look) for the current progress table. Call this inside a Shiny
 #' renderPlot(); it draws to whatever graphics device is active.
-plot_confidence_over_time <- function(progress, color_translation, plot_title = "Confidence over time") {
+#' @param class_mapping optional named vector from load_class_mapping(), so
+#'   v2 classes are drawn in the color of their v1 counterpart
+plot_confidence_over_time <- function(progress, color_translation, plot_title = "Confidence over time",
+                                      class_mapping = NULL) {
   # Guard against a malformed/unexpected progress table -- e.g. one restored
   # by resume from a classifier_progress_v1/v2.txt written in an older
   # format (space-separated, pre-dating the write.csv fix), which read.csv()
@@ -390,18 +478,8 @@ plot_confidence_over_time <- function(progress, color_translation, plot_title = 
 
   for (i in seq_len(nrow(data_rows))) {
     cls <- data_rows[i, "class"]
-    # Look up by name membership first, not a bare `[[cls]]` -- if
-    # color_translation is a plain named vector (not a list), `[[` on a
-    # missing name throws "subscript out of bounds" instead of returning
-    # NULL like a list would, which crashed this plot the first time a
-    # class name wasn't present in color_translation.rds.
-    clr <- if (!is.null(color_translation) && cls %in% names(color_translation)) {
-      color_translation[[cls]]
-    } else {
-      NULL
-    }
-    if (is.null(clr) || is.na(clr) || !nzchar(clr)) clr <- fallback_class_color(cls)
-    y <- suppressWarnings(as.numeric(data_rows[i, 2:ncol(data_rows)]))
+    clr <- class_color(cls, color_translation, class_mapping)
+    y <-suppressWarnings(as.numeric(data_rows[i, 2:ncol(data_rows)]))
     lines(x = seq_len(n_iter), y = y, col = clr, lwd = 2)
     last_y <- y[length(y)]
     if (!is.na(last_y) && last_y > 0.5) {
