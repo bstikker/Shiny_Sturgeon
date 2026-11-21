@@ -79,11 +79,14 @@ jobs:
           cd "$RUNNER_TEMP"
           samtools merge -f -o merged.bam bam_pass/barcode01/*.bam
           samtools sort -o merged_srt.bam merged.bam
-          modkit adjust-mods --convert h m merged_srt.bam merged_srt_adjust.bam
+          modkit adjust-mods --convert h m merged_srt.bam merged_srt_adjust.bam 2>&1 | tee adjust.log
+          # modkit lists reads it rejected in an error table; there must be none
+          if grep -q '^| [a-z-]* *| [0-9]' adjust.log; then echo "modkit rejected reads"; exit 1; fi
           modkit extract full -t 2 merged_srt_adjust.bam extract.txt
           head -3 extract.txt
-          # 5hmC calls must be folded into 5mC: no "h" left, and some "m" calls present
-          col=$(head -1 extract.txt | tr '\t' '\n' | grep -nx call_code | cut -d: -f1)
+          # 5hmC calls must be folded into 5mC: no "h" left, and some "m" calls present.
+          # The column is mod_code in modkit 0.5.0 (call_code in some other versions).
+          col=$(head -1 extract.txt | tr '\t' '\n' | grep -nxE 'mod_code|call_code' | head -1 | cut -d: -f1)
           test -n "$col"
           cut -f"$col" extract.txt | sort | uniq -c
           if cut -f"$col" extract.txt | grep -qx h; then echo "unexpected 5hmC calls left"; exit 1; fi

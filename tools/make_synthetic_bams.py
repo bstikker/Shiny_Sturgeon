@@ -184,12 +184,16 @@ class ReadFactory:
 
         if offsets:
             h_probs, m_probs = [], []
+            # h and m are probabilities of the same C (scaled to 0-255), so
+            # h + m must stay <= 255 or modkit rejects the read
             for o in offsets:
                 methylated = self.rng.random() < self.site_beta(chrom, start + o)
                 if methylated and self.rng.random() < 0.1:  # a few 5hmC calls for adjust-mods
-                    h, m = self.rng.randint(180, 250), self.rng.randint(0, 40)
+                    h = self.rng.randint(180, 230)
+                    m = self.rng.randint(0, min(40, 255 - h))
                 elif methylated:
-                    h, m = self.rng.randint(0, 20), self.rng.randint(200, 255)
+                    h = self.rng.randint(0, 20)
+                    m = self.rng.randint(200, 255 - h)
                 else:
                     h, m = self.rng.randint(0, 20), self.rng.randint(0, 30)
                 h_probs.append(h)
