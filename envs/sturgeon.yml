@@ -3,10 +3,9 @@
 #
 #   conda env create -f envs/sturgeon.yml
 #
-# Versions are taken from the NEURON pipeline's container
-# (https://github.com/tgac-vumc/NEURON, singularity/sturgeon.yml).
-# They have not yet been checked against the machine Shiny-Sturgeon 1.0.0
-# was validated on -- see "Tested with" in the README.
+# These are the versions Shiny-Sturgeon 1.0.0 was validated with
+# (see "Tested with" in the README). Sturgeon v1 0.5.1 has no release tag,
+# so it is pinned to its commit.
 # Sturgeon v1 needs Python 3.8; sturgeon-v2 needs Python >= 3.10, so it has
 # its own environment (envs/sturgeon-v2.yml).
 name: sturgeon
@@ -20,4 +19,4 @@ dependencies:
   - git
   - pip
   - pip:
-      - git+https://github.com/UMCUGenetics/sturgeon.git
+      - git+https://github.com/UMCUGenetics/sturgeon.git@80c33fbdf304ee2516eb2602433c02150c254a78

@@ -9,6 +9,7 @@ abstract: >-
   classification of Oxford Nanopore sequencing runs.
 type: software
 version: 1.0.0
+date-released: "2026-11-25"
 license: MIT
 repository-code: "https://github.com/bstikker/Shiny_Sturgeon"
 keywords:

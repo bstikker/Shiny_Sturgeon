@@ -53,24 +53,18 @@ During intraoperative sequencing, MinKNOW basecalls, calls methylation, and alig
 - [`sturgeon`](https://github.com/UMCUGenetics/sturgeon) (v1)
 - [`sturgeon-v2`](https://github.com/deRidderLab/sturgeon-v2) (v2, optional)
 
-**R** (4.x recommended) with:
+**R** with shiny, yaml, QDNAseq and DNAcopy. The exact versions are recorded in `renv.lock` (see [Installation](#installation)).
 
-```r
-install.packages(c("shiny", "yaml"))
+**Reference/model files** (not included in this repo; they are distributed with Sturgeon under its own license):
 
-# QDNAseq and DNAcopy are on Bioconductor, not CRAN:
-if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-BiocManager::install(c("QDNAseq", "DNAcopy"))
-```
-
-**Reference/model files** (from your own sequencing setup — not included in this repo):
-
-- a probes `.bed` file for Sturgeon v1
-- a Sturgeon v1 `model.zip`
-- a QDNAseq/DNAcopy bins `.rds` file for CNV binning
-- a CNV reference coverage file (`bins_export.bed`)
-- a `color_translation.rds` mapping tumor class names to plot colors
-- optionally, a sturgeon-v2 model file (e.g. `cns-v2.5.zip`, [Zenodo](https://zenodo.org/records/22899108))
+- from the [Sturgeon v1 repository](https://github.com/UMCUGenetics/sturgeon)'s `R_scripts/` folder:
+  - `probelocs_chm13.bed` — probe positions
+  - `chm13_v2.0_bins.rds` — QDNAseq bins for the CNV plot
+  - `bins_export.bed` — CNV reference coverage
+  - `color_translation.rds` — tumor class to plot color
+  - `relevant_genes_with_chm13v2_1Mb_bin_nrs.bed` — gene labels on the CNV plot (optional)
+- a Sturgeon v1 model (`general.zip`; see the Sturgeon README)
+- optionally, a sturgeon-v2 model (e.g. `cns-v2.5.zip`, [Zenodo](https://zenodo.org/records/22899108))
 
 **Data source:** a MinKNOW run configured to basecall, call methylation, and align in real time, writing to a `bam_pass/` folder containing `barcode<NN>/` and `unclassified/` subfolders.
 
@@ -81,7 +75,13 @@ git clone https://github.com/bstikker/Shiny_Sturgeon.git
 cd Shiny_Sturgeon
 ```
 
-Install the R packages listed above. For the external tools, the conda environment files in [`envs/`](envs/) pin the versions used by the [NEURON](https://github.com/tgac-vumc/NEURON) pipeline (samtools 1.22.1, modkit 0.5.0, Sturgeon v1, and sturgeon-v2 at a fixed commit). Sturgeon v1 needs Python 3.8 and sturgeon-v2 needs Python 3.10 or later, so they are two environments:
+**R packages.** The repository uses [renv](https://rstudio.github.io/renv/): starting R in the repository folder activates it, and this installs the recorded package versions (R 4.6, Bioconductor 3.23):
+
+```r
+renv::restore()
+```
+
+**External tools.** The conda environment files in [`envs/`](envs/) pin the [tested versions](#tested-with). Sturgeon v1 needs Python older than 3.10 and sturgeon-v2 needs Python 3.10 or later, so they are two environments:
 
 ```bash
 conda env create -f envs/sturgeon.yml
@@ -99,17 +99,19 @@ which samtools modkit sturgeon sturgeon-v2
 
 If any of them live inside a conda/venv environment that isn't active when you launch R, don't rely on shell activation — the app calls tools directly, it doesn't source `conda.sh`. Instead, either point the Setup tab's binary-path fields straight at the environment's executables (e.g. `~/miniconda3/envs/sturgeon2/bin/sturgeon`), or add that environment's `bin/` directory under **"Extra PATH directories"** in Setup.
 
-### Pinning R package versions (optional)
+After updating R packages on a machine where the app works, record the new versions with `renv::snapshot()` and commit `renv.lock`.
 
-To record the exact R package versions of a machine where the app works, use [renv](https://rstudio.github.io/renv/) on that machine, from the repository folder:
+### Tested with
 
-```r
-install.packages("renv")
-renv::init()      # creates renv.lock from the packages the app uses
-renv::snapshot()  # run again after updating packages
-```
+Version 1.0.0 was validated by replaying a previous case on Linux and comparing the Sturgeon v1 and v2 calls and the CNV profile with that case's earlier result:
 
-Commit `renv.lock`, `.Rprofile` and `renv/activate.R`. On a new machine, `renv::restore()` then installs the same versions.
+| Software | Version |
+|---|---|
+| R | 4.6.2 (packages in `renv.lock`, Bioconductor 3.23) |
+| samtools | 1.22.1 |
+| modkit | 0.5.0 |
+| Sturgeon v1 | 0.5.1 (commit `80c33fb`) |
+| sturgeon-v2 | commit `d581abf` |
 
 ## Configuration
 
@@ -191,7 +193,7 @@ Once `model_file_v2` is set, both models run automatically every iteration and g
 
 `NUM_CPGS` and `NUM_SAMPLINGS` are left blank by default, in which case sturgeon-v2 uses its own defaults (all available CpG sites, 1 random sampling) — fill them in only if you want to override those.
 
-v1 and v2 use different tumor-class names (e.g. `GBM_RTK2` vs. `Glioblastoma - GBM - RTK II`), and `color_translation.rds` is keyed to v1's names. To draw v2 classes in their v1 color, set `class_mapping_v2` to a CSV with columns `v2_class,v1_class`. The bundled [`class_mapping_v2.csv`](class_mapping_v2.csv) covers the five classes that the NEURON pipeline maps; extend it as needed. v2 classes without a mapping get a fixed fallback color per class. The mapping only changes colors — class names in plots and tables stay as the classifier reports them.
+v1 and v2 use different tumor-class names (e.g. `GBM_RTK2` vs. `Glioblastoma - GBM - RTK II`), and `color_translation.rds` is keyed to v1's names. To draw v2 classes in their v1 color, set `class_mapping_v2` to a CSV with columns `v2_class,v1_class`. The bundled [`class_mapping_v2.csv`](class_mapping_v2.csv) covers five classes so far; extend it as needed. v2 classes without a mapping get a fixed fallback color per class. The mapping only changes colors — class names in plots and tables stay as the classifier reports them.
 
 The public sturgeon-v2 release treats `-o` as an output folder and writes a tab-separated `result.txt` into it, with one row per random sampling; earlier versions wrote one comma-separated file at the `-o` path. The app reads either, and averages over samplings (as sturgeon-v2's own summary does). `sturgeon_v2_file_type` is `bed`, because the app feeds sturgeon-v2 the bed file made by `sturgeon inputtobed`.
 
