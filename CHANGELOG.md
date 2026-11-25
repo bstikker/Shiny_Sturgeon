@@ -22,11 +22,11 @@ First tagged release. Validated by replaying a previous case with the public stu
 - R package versions recorded with renv (`renv.lock`); conda environment files in `envs/` with the tested tool versions.
 - Test suite (`tests/`, run with `Rscript tests/run_tests.R`) with synthetic fixtures and stand-in scripts for the external tools, and a GitHub Actions workflow that also runs synthetic BAMs through samtools and modkit 0.5.0.
 - `tools/make_synthetic_bams.py` (synthetic MinKNOW-style BAMs with methylation tags) and `tools/make_demo_case.R` (demo case with made-up scores, used for the README screenshot).
-- `CITATION.cff`, citing the Sturgeon V2 preprint.
+- `CITATION.cff`, citing the Sturgeon v1 (Nature 2023) and Sturgeon V2 (medRxiv 2026) papers.
 
 ### Known limitations
 - The v1↔v2 class mapping covers five classes; other v2 classes get fallback colors.
 - Long class labels next to the confidence-plot lines can be cut off at the plot edge.
 
-[Unreleased]: https://github.com/bstikker/Shiny_Sturgeon/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/bstikker/Shiny_Sturgeon/releases/tag/v1.0.0
+[Unreleased]: https://github.com/tgac-vumc/Shiny_Sturgeon/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/tgac-vumc/Shiny_Sturgeon/releases/tag/v1.0.0

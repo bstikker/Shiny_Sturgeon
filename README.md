@@ -2,7 +2,7 @@
 
 **A local Shiny GUI for live intraoperative Sturgeon methylation classification of Oxford Nanopore sequencing runs.**
 
-[![tests](https://github.com/bstikker/Shiny_Sturgeon/actions/workflows/tests.yml/badge.svg)](https://github.com/bstikker/Shiny_Sturgeon/actions/workflows/tests.yml) ![R](https://img.shields.io/badge/R-Shiny-blue) ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey) ![Status](https://img.shields.io/badge/status-research%20use-yellow)
+[![tests](https://github.com/tgac-vumc/Shiny_Sturgeon/actions/workflows/tests.yml/badge.svg)](https://github.com/tgac-vumc/Shiny_Sturgeon/actions/workflows/tests.yml) ![R](https://img.shields.io/badge/R-Shiny-blue) ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey) ![Status](https://img.shields.io/badge/status-research%20use-yellow)
 
 Shiny-Sturgeon watches a MinKNOW run folder as it fills up during sequencing, and automatically runs the methylation-extraction and tumor-classification pipeline on every new batch of reads, showing a live confidence-over-time plot and a periodically-updated copy-number (CNV) plot.
 
@@ -71,7 +71,7 @@ During intraoperative sequencing, MinKNOW basecalls, calls methylation, and alig
 ## Installation
 
 ```bash
-git clone https://github.com/bstikker/Shiny_Sturgeon.git
+git clone https://github.com/tgac-vumc/Shiny_Sturgeon.git
 cd Shiny_Sturgeon
 ```
 
@@ -246,7 +246,13 @@ This app is a GUI/orchestration layer around existing tools — it does not impl
 
 ## Citation
 
-If you use the Sturgeon v2 classifier through this app, please cite:
+This app runs the Sturgeon classifiers; please cite the paper for each one you use.
+
+Sturgeon (v1):
+
+> Vermeulen C, Pagès-Gallego M, Kester L, *et al.* Ultra-fast deep-learned CNS tumour classification during surgery. *Nature* (2023). doi: [10.1038/s41586-023-06615-2](https://doi.org/10.1038/s41586-023-06615-2)
+
+Sturgeon v2:
 
 > Vermeulen C, van der Ent H, Maas SL, *et al.* Sturgeon V2: a clinically applicable CNS tumor classifier trained on relabeled data. *medRxiv* (2026). doi: [10.64898/2026.10.19.26365910](https://doi.org/10.64898/2026.10.19.26365910)
 

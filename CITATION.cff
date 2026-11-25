@@ -1,8 +1,8 @@
 cff-version: 1.2.0
 message: >-
   If you use Shiny-Sturgeon, please cite the software using the metadata below.
-  If you use the Sturgeon v2 classifier through this app, please also cite the
-  Sturgeon V2 preprint (preferred-citation).
+  Please also cite the classifier papers: the Sturgeon V2 preprint
+  (preferred-citation) and, for Sturgeon v1, the Nature 2023 paper (references).
 title: "Shiny-Sturgeon"
 abstract: >-
   A local Shiny GUI for live intraoperative Sturgeon methylation
@@ -11,7 +11,7 @@ type: software
 version: 1.0.0
 date-released: "2026-11-25"
 license: MIT
-repository-code: "https://github.com/bstikker/Shiny_Sturgeon"
+repository-code: "https://github.com/tgac-vumc/Shiny_Sturgeon"
 keywords:
   - nanopore
   - methylation
@@ -85,3 +85,18 @@ preferred-citation:
     - given-names: "J."
       name-particle: "de"
       family-names: "Ridder"
+references:
+  - type: article
+    title: "Ultra-fast deep-learned CNS tumour classification during surgery"
+    journal: "Nature"
+    year: 2023
+    doi: "10.1038/s41586-023-06615-2"
+    url: "https://doi.org/10.1038/s41586-023-06615-2"
+    authors:
+      - given-names: "C."
+        family-names: "Vermeulen"
+      - given-names: "M."
+        family-names: "Pagès-Gallego"
+      - given-names: "L."
+        family-names: "Kester"
+      - name: "et al."
