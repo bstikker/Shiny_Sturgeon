@@ -2,7 +2,7 @@
 
 **A local Shiny GUI for live intraoperative Sturgeon methylation classification of Oxford Nanopore sequencing runs.**
 
-[![tests](https://github.com/tgac-vumc/Shiny_Sturgeon/actions/workflows/tests.yml/badge.svg)](https://github.com/tgac-vumc/Shiny_Sturgeon/actions/workflows/tests.yml) ![R](https://img.shields.io/badge/R-Shiny-blue) ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey) ![Status](https://img.shields.io/badge/status-research%20use-yellow)
+[![tests](https://github.com/tgac-vumc/Shiny_Sturgeon/actions/workflows/tests.yml/badge.svg)](https://github.com/tgac-vumc/Shiny_Sturgeon/actions/workflows/tests.yml) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24534278.svg)](https://doi.org/10.5281/zenodo.24534278) ![R](https://img.shields.io/badge/R-Shiny-blue) ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey) ![Status](https://img.shields.io/badge/status-research%20use-yellow)
 
 Shiny-Sturgeon watches a MinKNOW run folder as it fills up during sequencing, and automatically runs the methylation-extraction and tumor-classification pipeline on every new batch of reads, showing a live confidence-over-time plot and a periodically-updated copy-number (CNV) plot.
 
@@ -256,7 +256,7 @@ Sturgeon v2:
 
 > Vermeulen C, van der Ent H, Maas SL, *et al.* Sturgeon V2: a clinically applicable CNS tumor classifier trained on relabeled data. *medRxiv* (2026). doi: [10.64898/2026.10.19.26365910](https://doi.org/10.64898/2026.10.19.26365910)
 
-To cite Shiny-Sturgeon itself, use the **"Cite this repository"** button on GitHub (generated from [`CITATION.cff`](CITATION.cff)).
+To cite Shiny-Sturgeon itself, use its Zenodo DOI, [10.5281/zenodo.24534278](https://doi.org/10.5281/zenodo.24534278), or the **"Cite this repository"** button on GitHub (generated from [`CITATION.cff`](CITATION.cff)).
 
 ## License
 
