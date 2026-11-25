@@ -75,7 +75,13 @@ git clone https://github.com/bstikker/Shiny_Sturgeon.git
 cd Shiny_Sturgeon
 ```
 
-**R packages.** The repository uses [renv](https://rstudio.github.io/renv/): starting R in the repository folder activates it, and this installs the recorded package versions (R 4.6, Bioconductor 3.23):
+**R packages.** Some Bioconductor packages (Rsamtools, used by QDNAseq) are built from source and need these system libraries first. On Ubuntu/Debian:
+
+```bash
+sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libbz2-dev liblzma-dev zlib1g-dev libdeflate-dev
+```
+
+The repository uses [renv](https://rstudio.github.io/renv/): starting R in the repository folder activates it, and this installs the recorded package versions (R 4.6, Bioconductor 3.23):
 
 ```r
 renv::restore()
