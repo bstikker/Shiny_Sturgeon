@@ -32,10 +32,17 @@ source(file.path(app_dir, "config.R"))
 `%||%` <- function(a, b) if (is.null(a) || (length(a) == 1 && !nzchar(as.character(a)))) b else a
 
 default_cfg <- load_config(app_dir)
+installed_by_script <- file.exists(file.path(app_dir, "config_local.yml"))
+
+status_style <- c("ok" = "color:#1a7f37;", "problem" = "color:#cf222e;font-weight:bold;",
+                  "warning" = "color:#9a6700;font-weight:bold;", "not used" = "color:#6e7781;")
 
 # ---- UI ----------------------------------------------------------------
 
 ui <- fluidPage(
+  # wrap long log lines (folder paths) instead of hiding them off to the side
+  tags$head(tags$style(HTML(
+    "#logOutput { white-space: pre-wrap; word-break: normal; overflow-wrap: anywhere; background: inherit; color: inherit; border: none; }"))),
   titlePanel("Sturgeon Live Intraoperative Classifier"),
 
   tabsetPanel(
@@ -43,6 +50,12 @@ ui <- fluidPage(
 
     tabPanel("Setup",
       br(),
+      if (installed_by_script) {
+        div(class = "alert alert-info",
+            strong("Tools and reference files were filled in by install.sh."),
+            " For a new case you only need to set the MinKNOW folder, the barcode and an output folder,",
+            " then click ", strong("Check installation"), " and ", strong("Save configuration"), ".")
+      },
       fluidRow(
         column(6,
           h4("Sequencing run"),
@@ -113,9 +126,11 @@ ui <- fluidPage(
       br(),
       fluidRow(
         column(12,
+          actionButton("check_btn", "Check installation", class = "btn-info"),
           actionButton("save_cfg_btn", "Save configuration", class = "btn-primary"),
           actionButton("load_cfg_btn", "Load config.yml from output folder"),
           br(), br(),
+          uiOutput("checkResults"),
           verbatimTextOutput("configStatus")
         )
       )
@@ -262,6 +277,39 @@ server <- function(input, output, session) {
 
   # ---- Setup tab -------------------------------------------------------
 
+  check_result <- reactiveVal(NULL)
+
+  observeEvent(input$check_btn, {
+    check_result(check_setup(gather_cfg_from_inputs()))
+  })
+
+  output$checkResults <- renderUI({
+    res <- check_result()
+    if (is.null(res)) return(NULL)
+    n_problem <- sum(res$status == "problem")
+    n_warning <- sum(res$status == "warning")
+    summary <- if (n_problem > 0) {
+      div(class = "alert alert-danger", sprintf(
+        "%d problem(s) found: a run would fail. Fix the red rows below, then check again.", n_problem))
+    } else if (n_warning > 0) {
+      div(class = "alert alert-warning", sprintf(
+        "Everything needed was found, with %d warning(s) worth a look.", n_warning))
+    } else {
+      div(class = "alert alert-success", "Everything was found. You can save the configuration and start a run.")
+    }
+    tagList(
+      summary,
+      tags$table(class = "table table-condensed", style = "width:auto;",
+        tags$thead(tags$tr(tags$th("Item"), tags$th("Status"), tags$th("Details"))),
+        tags$tbody(lapply(seq_len(nrow(res)), function(i) {
+          tags$tr(tags$td(res$item[i]),
+                  tags$td(style = status_style[[res$status[i]]], res$status[i]),
+                  tags$td(style = "font-family:monospace;font-size:12px;", res$detail[i]))
+        }))
+      )
+    )
+  })
+
   observeEvent(input$save_cfg_btn, {
     cfg <- gather_cfg_from_inputs()
     problems <- validate_config(cfg)
@@ -290,6 +338,12 @@ server <- function(input, output, session) {
   observeEvent(input$start_btn, {
     cfg <- gather_cfg_from_inputs()
     problems <- validate_config(cfg)
+    # validate_config() covers files and folders; also catch tools that can't
+    # be found, which would otherwise only fail inside the first iteration
+    checks <- check_setup(cfg)
+    tool_rows <- checks[checks$item %in% c("samtools", "modkit", "sturgeon (v1)", "sturgeon-v2") &
+                          checks$status == "problem", ]
+    problems <- c(problems, sprintf("%s %s", tool_rows$item, tool_rows$detail))
     if (length(problems) > 0) {
       showModal(modalDialog(
         title = "Can't start -- fix configuration first",
@@ -377,7 +431,9 @@ server <- function(input, output, session) {
     }
 
     rv$running <- TRUE
-    add_log("Monitoring started.")
+    watch <- describe_watch_folders(cfg$bam_pass_folder, cfg$barcode, cfg$use_unclassified)
+    add_log(paste0("Monitoring started. Watching ", watch$folders[1],
+                   if (isTRUE(cfg$use_unclassified)) " and unclassified/ next to it" else ""))
   })
 
   observeEvent(input$stop_btn, {
@@ -421,7 +477,7 @@ server <- function(input, output, session) {
     )
 
     if (length(new_bams) == 0) {
-      add_log("No new BAM files, waiting...")
+      for (line in no_new_bams_message(cfg$bam_pass_folder, cfg$barcode, cfg$use_unclassified)) add_log(line)
       return(invisible(NULL))
     }
 

@@ -1,2 +1,5 @@
 archive/
 __pycache__/
+config_local.yml
+config_local.yml.bak
+resources/

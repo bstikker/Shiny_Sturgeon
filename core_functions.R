@@ -110,6 +110,33 @@ find_new_bams <- function(bam_pass_folder, barcode, use_unclassified, already_pr
   setdiff(bams, already_processed)
 }
 
+#' The folders find_new_bams() looks in for a barcode, and which of them do
+#' not exist (yet). Used for the log: MinKNOW only creates barcode<NN>/ once
+#' the first read for that barcode is written, so a missing folder early in a
+#' run is normal, but one that never appears usually means a wrong path or
+#' barcode.
+describe_watch_folders <- function(bam_pass_folder, barcode, use_unclassified) {
+  folders <- file.path(bam_pass_folder, paste0("barcode", barcode))
+  if (isTRUE(use_unclassified)) folders <- c(folders, file.path(bam_pass_folder, "unclassified"))
+  list(folders = folders, missing = folders[!dir.exists(folders)])
+}
+
+#' Log line(s) for a poll that found nothing new: names the folders being
+#' watched, and warns about each one that does not exist.
+no_new_bams_message <- function(bam_pass_folder, barcode, use_unclassified) {
+  watch <- describe_watch_folders(bam_pass_folder, barcode, use_unclassified)
+  msg <- sprintf("No new BAM files in %s%s, waiting...", watch$folders[1],
+                 if (isTRUE(use_unclassified)) " (or unclassified/)" else "")
+  if (!dir.exists(bam_pass_folder)) {
+    return(c(msg, sprintf("WARNING: the MinKNOW folder %s does not exist. Check 'bam_pass_folder' on the Setup tab.",
+                          bam_pass_folder)))
+  }
+  for (d in watch$missing) {
+    msg <- c(msg, sprintf("WARNING: %s does not exist (yet). MinKNOW creates it when the first reads for it arrive; if it never appears, check the barcode and MinKNOW folder on the Setup tab.", d))
+  }
+  msg
+}
+
 #' Merge + coordinate-sort a set of BAMs into one file for this iteration.
 #' Returns the path to the sorted BAM.
 merge_and_sort_bams <- function(bam_files, iteration_dir, samtools_bin = "samtools",

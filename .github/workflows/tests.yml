@@ -45,6 +45,16 @@ jobs:
       - name: Build the demo case
         run: Rscript tools/make_demo_case.R "$RUNNER_TEMP/demo"
 
+  shell-scripts:
+    name: Shell script check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck install.sh and run_app.sh
+        run: shellcheck -S warning install.sh run_app.sh
+      - name: install.sh --help
+        run: ./install.sh --help
+
   synthetic-data:
     name: Synthetic BAMs through samtools and modkit
     runs-on: ubuntu-24.04

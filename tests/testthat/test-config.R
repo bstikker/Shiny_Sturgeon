@@ -61,3 +61,102 @@ test_that("save_config writes a config.yml that loads back", {
   expect_true(file.exists(path))
   expect_equal(yaml::read_yaml(path)$probes_file, cfg$probes_file)
 })
+
+test_that("config_local.yml (written by install.sh) overrides the default, and a saved case config overrides both", {
+  dir <- tempfile("app_"); dir.create(dir)
+  file.copy(file.path(repo_root, "config_default.yml"), dir)
+  yaml::write_yaml(list(samtools_bin = "/opt/env/bin/samtools", probes_file = "/data/probes.bed"),
+                   file.path(dir, "config_local.yml"))
+  cfg <- load_config(dir)
+  expect_equal(cfg$samtools_bin, "/opt/env/bin/samtools")
+  expect_equal(cfg$probes_file, "/data/probes.bed")
+  expect_equal(cfg$barcode, "01")
+
+  saved <- file.path(dir, "saved.yml")
+  yaml::write_yaml(list(probes_file = "/case/probes.bed"), saved)
+  cfg <- load_config(dir, saved_path = saved)
+  expect_equal(cfg$probes_file, "/case/probes.bed")
+  expect_equal(cfg$samtools_bin, "/opt/env/bin/samtools")
+})
+
+test_that("load_config works without a config_local.yml", {
+  expect_equal(load_config(repo_root, local_path = tempfile())$samtools_bin, "samtools")
+})
+
+test_that("resolve_tool finds tools by full path, in extra PATH directories, and on PATH", {
+  bin_dir <- tempfile("bin_"); dir.create(bin_dir)
+  tool <- fake_tool(bin_dir, "my-tool")
+  expect_equal(resolve_tool(tool), tool)
+  expect_equal(resolve_tool("my-tool", bin_dir), tool)
+  expect_equal(resolve_tool("my-tool"), "")
+  expect_equal(resolve_tool(file.path(bin_dir, "absent")), "")
+  expect_equal(resolve_tool(""), "")
+  expect_equal(resolve_tool(NA), "")
+  expect_true(nzchar(resolve_tool("sh")))
+
+  not_exec <- file.path(bin_dir, "not-exec"); file.create(not_exec)
+  expect_equal(resolve_tool(not_exec), "")
+})
+
+setup_cfg <- function() {
+  cfg <- valid_cfg()
+  bin_dir <- tempfile("bin_"); dir.create(bin_dir)
+  for (t in c("samtools", "modkit", "sturgeon")) fake_tool(bin_dir, t)
+  dir.create(file.path(cfg$bam_pass_folder, "barcode01"))
+  c(cfg, list(samtools_bin = "samtools", modkit_bin = "modkit", sturgeon_bin = "sturgeon",
+              extra_path_dirs = bin_dir, barcode = "01", use_unclassified = FALSE,
+              relevant_genes_bed = "", class_mapping_v2 = "", probes_file_v2 = ""))
+}
+status_of <- function(res, item) res$status[res$item == item]
+
+test_that("check_setup reports a complete setup as ok", {
+  res <- check_setup(setup_cfg())
+  expect_false(any(res$status %in% c("problem", "warning")))
+  expect_equal(status_of(res, "samtools"), "ok")
+  expect_equal(status_of(res, "sturgeon-v2"), "not used")
+  expect_equal(status_of(res, "CNV gene labels"), "not used")
+  expect_match(res$detail[res$item == "Output folder"], "will be created")
+})
+
+test_that("check_setup reports missing tools, files and folders", {
+  cfg <- setup_cfg()
+  cfg$modkit_bin <- "/nonexistent/modkit"
+  cfg$bins_rds <- "/nonexistent/bins.rds"
+  cfg$color_translation_rds <- ""
+  cfg$bam_pass_folder <- "/nonexistent/bam_pass"
+  res <- check_setup(cfg)
+  expect_equal(status_of(res, "modkit"), "problem")
+  expect_equal(status_of(res, "CNV bins"), "problem")
+  expect_equal(status_of(res, "Class colors"), "problem")
+  expect_equal(status_of(res, "MinKNOW folder"), "problem")
+  expect_equal(status_of(res, "samtools"), "ok")
+})
+
+test_that("check_setup checks sturgeon-v2 only when a v2 model is set", {
+  cfg <- setup_cfg()
+  cfg$model_file_v2 <- cfg$model_file_v1
+  cfg$sturgeon_v2_bin <- "sturgeon-v2-absent"
+  expect_equal(status_of(check_setup(cfg), "sturgeon-v2"), "problem")
+  fake_tool(cfg$extra_path_dirs, "sturgeon-v2-absent")
+  expect_equal(status_of(check_setup(cfg), "sturgeon-v2"), "ok")
+})
+
+test_that("check_setup warns about a barcode folder that doesn't exist yet and an output folder to resume", {
+  cfg <- setup_cfg()
+  cfg$barcode <- "07"
+  cfg$use_unclassified <- TRUE
+  dir.create(cfg$output_folder)
+  file.create(file.path(cfg$output_folder, "processed_files.txt"))
+  res <- check_setup(cfg)
+  watched <- res[res$item == "Watched folder", ]
+  expect_equal(nrow(watched), 2)
+  expect_true(all(watched$status == "warning"))
+  expect_match(watched$detail[1], "barcode07")
+  expect_equal(status_of(res, "Output folder"), "warning")
+  expect_false(any(res$status == "problem"))
+})
+
+test_that("check_setup rejects a relative output folder", {
+  cfg <- setup_cfg(); cfg$output_folder <- "case"
+  expect_equal(status_of(check_setup(cfg), "Output folder"), "problem")
+})
