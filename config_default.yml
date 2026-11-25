@@ -39,21 +39,20 @@ color_translation_rds: ""          # named list/vector: tumor class -> plot colo
 class_mapping_v2: ""               # optional: CSV (v2_class,v1_class) so v2 classes get their v1 color,
                                    # e.g. the bundled class_mapping_v2.csv (full path recommended)
 
-# --- Sturgeon v2 (optional) ---
-# Leave model_file_v2 blank to run v1 only. When filled in, the app runs
-# both models each iteration and shows two separate confidence-over-time
-# plots side by side. v2 reuses v1's extracted bed file (confirmed this is
+# --- Sturgeon v2 ---
+# The app runs both Sturgeon v1 and v2 every iteration and shows two
+# separate confidence-over-time plots side by side. v2 reuses v1's extracted bed file (confirmed this is
 # supported) unless probes_file_v2 is set, so running v2 alongside v1 adds
 # only a second (fast) prediction call, not a second full pipeline.
 #
 # sturgeon-v2 has a different CLI than v1 (`sturgeon-v2 single/multi -i ... -m
-# ... [-c NUM_CPGS] -o ... [-s NUM_SAMPLINGS] -f FILE_TYPE`). sturgeon_v2_bin,
-# sturgeon_v2_mode and sturgeon_v2_file_type are REQUIRED once model_file_v2
-# is set. num_cpgs/num_samplings are OPTIONAL -- confirmed against
+# ... [-c NUM_CPGS] -o ... [-s NUM_SAMPLINGS] -f FILE_TYPE`). model_file_v2,
+# sturgeon_v2_bin, sturgeon_v2_mode and sturgeon_v2_file_type are REQUIRED.
+# num_cpgs/num_samplings are OPTIONAL -- confirmed against
 # sturgeon-v2's own --help: left blank, sturgeon-v2 itself defaults to using
 # all available CpG sites and 1 random sampling, so the app simply omits
 # -c/-s from the command when these are blank rather than guessing a value.
-model_file_v2: ""              # sturgeon v2 model file -- optional, enables v2 when set
+model_file_v2: ""              # sturgeon v2 model .zip (e.g. cns-v2.5.zip) -- required
 probes_file_v2: ""              # only needed if v2 requires a different probes file than v1
 sturgeon_v2_bin: "sturgeon-v2"  # the sturgeon-v2 executable (or full path, e.g. in its own venv)
 sturgeon_v2_mode: "single"       # "single" or "multi" -- "single" = one sample at a time, matches this app's per-iteration use

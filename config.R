@@ -72,7 +72,7 @@ validate_config <- function(cfg) {
   problems <- character()
 
   required_paths <- c("bam_pass_folder", "output_folder", "probes_file", "model_file_v1",
-                       "bins_rds", "cnvplot_reffile", "color_translation_rds")
+                       "model_file_v2", "bins_rds", "cnvplot_reffile", "color_translation_rds")
   for (field in required_paths) {
     val <- cfg[[field]]
     if (is.null(val) || !nzchar(val)) {
@@ -80,9 +80,9 @@ validate_config <- function(cfg) {
     }
   }
 
-  # model_file_v2 / probes_file_v2 / class_mapping_v2 are optional -- only checked for existence
-  # if the user actually filled them in (blank means "v2 not used" / "v2
-  # reuses the v1 probes file").
+  # probes_file_v2 / class_mapping_v2 are optional -- only checked for
+  # existence if the user actually filled them in (a blank probes_file_v2
+  # means "v2 reuses the v1 probes file").
   file_fields <- c("probes_file", "model_file_v1", "bins_rds", "cnvplot_reffile",
                     "color_translation_rds", "class_mapping_v2", "model_file_v2", "probes_file_v2")
   for (field in file_fields) {
@@ -111,26 +111,23 @@ validate_config <- function(cfg) {
     }
   }
 
-  # if v2 is enabled (model_file_v2 set), its executable/mode/file-type still
-  # need real values -- but num_cpgs (-c) and num_samplings (-s) are
-  # confirmed OPTIONAL in sturgeon-v2's own CLI (left unset, it defaults to
-  # "all available CpG sites" / "1 random sampling" itself), so they are
-  # deliberately NOT required here. run_sturgeon_v2_predict() only adds
+  # v2 always runs, so its executable/mode/file-type need real values --
+  # but num_cpgs (-c) and num_samplings (-s) are confirmed OPTIONAL in
+  # sturgeon-v2's own CLI (left unset, it defaults to "all available CpG
+  # sites" / "1 random sampling" itself), so they are deliberately NOT required here. run_sturgeon_v2_predict() only adds
   # -c/-s to the command when the user has actually filled them in.
-  if (!is.null(cfg$model_file_v2) && nzchar(cfg$model_file_v2)) {
-    v2_required <- c("sturgeon_v2_bin", "sturgeon_v2_mode", "sturgeon_v2_file_type")
-    for (field in v2_required) {
-      val <- cfg[[field]]
-      # A blank Shiny numericInput comes through as R's NA, not "".
-      # as.character(NA) is the *string* "NA", which nzchar() sees as
-      # non-empty -- so check is.na() explicitly rather than relying on
-      # nzchar(as.character(val)) alone, in case a numeric field is ever
-      # added back to this list.
-      is_missing <- is.null(val) || (length(val) == 1 && is.na(val)) ||
-        !nzchar(trimws(as.character(val)))
-      if (is_missing) {
-        problems <- c(problems, sprintf("'%s' is empty (required because a Sturgeon v2 model is configured).", field))
-      }
+  v2_required <- c("sturgeon_v2_bin", "sturgeon_v2_mode", "sturgeon_v2_file_type")
+  for (field in v2_required) {
+    val <- cfg[[field]]
+    # A blank Shiny numericInput comes through as R's NA, not "".
+    # as.character(NA) is the *string* "NA", which nzchar() sees as
+    # non-empty -- so check is.na() explicitly rather than relying on
+    # nzchar(as.character(val)) alone, in case a numeric field is ever
+    # added back to this list.
+    is_missing <- is.null(val) || (length(val) == 1 && is.na(val)) ||
+      !nzchar(trimws(as.character(val)))
+    if (is_missing) {
+      problems <- c(problems, sprintf("'%s' is empty (required for Sturgeon v2).", field))
     }
   }
 
@@ -174,7 +171,6 @@ check_setup <- function(cfg) {
     if (is.null(v) || length(v) == 0 || (length(v) == 1 && is.na(v))) return("")
     trimws(as.character(v[[1]]))
   }
-  v2_used <- nzchar(val("model_file_v2"))
   extra <- if (is.null(cfg$extra_path_dirs)) character(0) else unlist(cfg$extra_path_dirs)
 
   for (d in extra[!is.na(extra) & nzchar(extra)]) {
@@ -185,11 +181,10 @@ check_setup <- function(cfg) {
     list("samtools", "samtools_bin", TRUE),
     list("modkit", "modkit_bin", TRUE),
     list("sturgeon (v1)", "sturgeon_bin", TRUE),
-    list("sturgeon-v2", "sturgeon_v2_bin", v2_used)
+    list("sturgeon-v2", "sturgeon_v2_bin", TRUE)
   )
   for (t in tools) {
     label <- t[[1]]; bin <- val(t[[2]])
-    if (!isTRUE(t[[3]])) { add(label, "not used", "no Sturgeon v2 model set"); next }
     if (!nzchar(bin)) { add(label, "problem", sprintf("'%s' is empty", t[[2]])); next }
     found <- resolve_tool(bin, extra)
     if (nzchar(found)) add(label, "ok", found)
@@ -204,7 +199,7 @@ check_setup <- function(cfg) {
     list("Class colors", "color_translation_rds", TRUE),
     list("CNV gene labels", "relevant_genes_bed", FALSE),
     list("v2-to-v1 class mapping", "class_mapping_v2", FALSE),
-    list("Sturgeon v2 model", "model_file_v2", FALSE),
+    list("Sturgeon v2 model", "model_file_v2", TRUE),
     list("Probes file for v2", "probes_file_v2", FALSE)
   )
   for (f in files) {

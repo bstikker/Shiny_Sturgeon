@@ -51,7 +51,7 @@ During intraoperative sequencing, MinKNOW basecalls, calls methylation, and alig
 - `samtools`
 - [`modkit`](https://github.com/nanoporetech/modkit)
 - [`sturgeon`](https://github.com/UMCUGenetics/sturgeon) (v1)
-- [`sturgeon-v2`](https://github.com/deRidderLab/sturgeon-v2) (v2, optional)
+- [`sturgeon-v2`](https://github.com/deRidderLab/sturgeon-v2) (v2)
 
 **R** with shiny, yaml, QDNAseq and DNAcopy. The exact versions are recorded in `renv.lock` (see [Installation](#installation)).
 
@@ -64,7 +64,7 @@ During intraoperative sequencing, MinKNOW basecalls, calls methylation, and alig
   - `color_translation.rds` — tumor class to plot color
   - `relevant_genes_with_chm13v2_1Mb_bin_nrs.bed` — gene labels on the CNV plot (optional)
 - a Sturgeon v1 model (`general.zip`; see the Sturgeon README)
-- optionally, a sturgeon-v2 model (e.g. `cns-v2.5.zip`, [Zenodo](https://zenodo.org/records/22899108))
+- a sturgeon-v2 model (e.g. `cns-v2.5.zip`, [Zenodo](https://zenodo.org/records/22899108))
 
 **Data source:** a MinKNOW run configured to basecall, call methylation, and align in real time, writing to a `bam_pass/` folder containing `barcode<NN>/` and `unclassified/` subfolders.
 
@@ -92,7 +92,7 @@ cd Shiny_Sturgeon && ./install.sh
 4. downloads the Sturgeon v1 model, the sturgeon-v2 model and the Sturgeon v1 `R_scripts/` reference files into `resources/`, after you accept the Sturgeon license (these files are not bundled with this app; see [Requirements](#requirements));
 5. writes `config_local.yml` (not in git) with the full paths of all tools and files.
 
-The app then opens with those paths filled in, so the Setup tab only needs the MinKNOW folder, the barcode and the output folder. Start it with `./run_app.sh`. See `./install.sh --help` for options such as `--yes --accept-sturgeon-license` (unattended), `--no-v2` and `--data-dir`.
+The app then opens with those paths filled in, so the Setup tab only needs the MinKNOW folder, the barcode and the output folder. Start it with `./run_app.sh`. See `./install.sh --help` for options such as `--yes --accept-sturgeon-license` (unattended) and `--data-dir`.
 
 ### Manual install
 
@@ -163,7 +163,7 @@ All settings live in a YAML config, editable either by hand or from the app's **
 | `extra_path_dirs` | directories to prepend to `PATH` (e.g. a conda env's `bin/`) |
 | `probes_file`, `model_file_v1`, `bins_rds`, `cnvplot_reffile`, `color_translation_rds` | reference/model files (see [Requirements](#requirements)) |
 | `class_mapping_v2` | optional CSV that gives v2 classes the color of their v1 counterpart — see [below](#running-two-classifier-models-v1--v2) |
-| `model_file_v2`, `sturgeon_v2_bin`, `sturgeon_v2_mode`, `sturgeon_v2_num_cpgs`, `sturgeon_v2_num_samplings`, `sturgeon_v2_file_type` | optional sturgeon-v2 configuration — see [below](#running-two-classifier-models-v1--v2) |
+| `model_file_v2`, `sturgeon_v2_bin`, `sturgeon_v2_mode`, `sturgeon_v2_num_cpgs`, `sturgeon_v2_num_samplings`, `sturgeon_v2_file_type` | sturgeon-v2 configuration (`num_cpgs` and `num_samplings` are optional) — see [below](#running-two-classifier-models-v1--v2) |
 
 `output_folder` and `bam_pass_folder` must be full absolute paths (not `~` or a relative path) — the app validates this before letting you start.
 
@@ -223,7 +223,7 @@ If the app or its R session is stopped mid-case — intentionally or not — sta
 
 ## Running two classifier models (v1 + v2)
 
-Once `model_file_v2` is set, both models run automatically every iteration and get their own confidence-over-time plot and top-calls table — no need to choose one. The expensive step (`sturgeon inputtobed`) is shared between them when they use the same probes file, so adding v2 only adds one extra `predict` call, not a second full pipeline.
+Both models run every iteration and get their own confidence-over-time plot and top-calls table. `model_file_v2` is required, like `model_file_v1`. The expensive step (`sturgeon inputtobed`) is shared between them when they use the same probes file, so v2 only adds one extra `predict` call, not a second full pipeline.
 
 `NUM_CPGS` and `NUM_SAMPLINGS` are left blank by default, in which case sturgeon-v2 uses its own defaults (all available CpG sites, 1 random sampling) — fill them in only if you want to override those.
 

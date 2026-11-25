@@ -7,7 +7,7 @@
 #
 # What it does (each step can be skipped, see --help):
 #   1. installs the system libraries R needs to build its packages (apt, sudo)
-#   2. creates two conda environments from envs/:
+#   2. creates the two conda environments from envs/:
 #        sturgeon     samtools, modkit and Sturgeon v1 (Python 3.8)
 #        sturgeon-v2  sturgeon-v2 (Python 3.11)
 #      Sturgeon v1 needs Python older than 3.10 and sturgeon-v2 needs 3.10 or
@@ -34,7 +34,6 @@ DO_SYSTEM=1
 DO_CONDA=1
 DO_R=1
 DO_DOWNLOADS=1
-DO_V2=1
 
 # Pinned sources (the versions in the README's "Tested with" table)
 STURGEON_V1_COMMIT="80c33fbdf304ee2516eb2602433c02150c254a78"
@@ -58,7 +57,6 @@ Options:
   --data-dir DIR             where models and reference files go (default: $REPO_DIR/resources)
   --yes, -y                  don't ask before each step
   --accept-sturgeon-license  accept the Sturgeon license without being asked (needed with --yes)
-  --no-v2                    skip sturgeon-v2 (its environment and model)
   --skip-system              don't install system libraries (no sudo needed)
   --skip-conda               don't create or update the conda environments
   --skip-r                   don't install R packages
@@ -73,7 +71,6 @@ while [[ $# -gt 0 ]]; do
     --data-dir=*) DATA_DIR="${1#*=}"; shift ;;
     -y|--yes) ASSUME_YES=1; shift ;;
     --accept-sturgeon-license) ACCEPT_LICENSE=1; shift ;;
-    --no-v2) DO_V2=0; shift ;;
     --skip-system) DO_SYSTEM=0; shift ;;
     --skip-conda) DO_CONDA=0; shift ;;
     --skip-r) DO_R=0; shift ;;
@@ -159,7 +156,7 @@ find_conda() {
 
 CONDA="$(find_conda || true)"
 if [[ $DO_CONDA -eq 1 ]]; then
-  step "2/5  Conda environments ($ENV_V1$( [[ $DO_V2 -eq 1 ]] && echo ", $ENV_V2"))"
+  step "2/5  Conda environments ($ENV_V1, $ENV_V2)"
   if [[ -z "$CONDA" ]]; then
     echo "    conda was not found."
     if ask "Install Miniforge (a small conda) into $HOME/miniforge3?"; then
@@ -187,7 +184,7 @@ if [[ $DO_CONDA -eq 1 ]]; then
     ok "environment '$1'"
   }
   make_env "$ENV_V1" "$REPO_DIR/envs/sturgeon.yml"
-  [[ $DO_V2 -eq 1 ]] && make_env "$ENV_V2" "$REPO_DIR/envs/sturgeon-v2.yml"
+  make_env "$ENV_V2" "$REPO_DIR/envs/sturgeon-v2.yml"
 fi
 
 # Locate the environments' bin/ folders (also when --skip-conda was used)
@@ -196,7 +193,7 @@ env_bin() {
   "$CONDA" env list | awk -v n="$1" '$1 == n {print $NF}' | head -1 | sed 's|$|/bin|'
 }
 BIN_V1="$(env_bin "$ENV_V1")"
-BIN_V2=""; [[ $DO_V2 -eq 1 ]] && BIN_V2="$(env_bin "$ENV_V2")"
+BIN_V2="$(env_bin "$ENV_V2")"
 
 # ---- 3. R packages ----------------------------------------------------------
 if [[ $DO_R -eq 1 ]]; then
@@ -254,28 +251,26 @@ if [[ $DO_DOWNLOADS -eq 1 ]]; then
     warn "the Sturgeon v1 model download was not a zip file. Download general.zip by hand from the Sturgeon README and put it at $MODEL_V1"
   fi
 
-  if [[ $DO_V2 -eq 1 ]]; then
-    # Ask Zenodo's API for the record's files, so a renamed zip still works
-    py="$(command -v python3 || true)"; [[ -z "$py" && -n "$BIN_V2" ]] && py="$BIN_V2/python"
-    listing="$(curl -fsSL -A "$USER_AGENT" "https://zenodo.org/api/records/$MODEL_V2_ZENODO_RECORD" 2>/dev/null \
-      | "${py:-python3}" -c 'import json,sys
+  # Ask Zenodo's API for the record's files, so a renamed zip still works
+  py="$(command -v python3 || true)"; [[ -z "$py" && -n "$BIN_V2" ]] && py="$BIN_V2/python"
+  listing="$(curl -fsSL -A "$USER_AGENT" "https://zenodo.org/api/records/$MODEL_V2_ZENODO_RECORD" 2>/dev/null \
+    | "${py:-python3}" -c 'import json,sys
 for f in json.load(sys.stdin).get("files", []):
-    if f["key"].endswith(".zip"): print(f["key"] + "\t" + f["links"]["self"]); break' 2>/dev/null || true)"
-    if [[ -n "$listing" ]]; then
-      MODEL_V2="$MODEL_DIR/$(cut -f1 <<<"$listing")"
-      download "$(cut -f2 <<<"$listing")" "$MODEL_V2" || MODEL_V2=""
+  if f["key"].endswith(".zip"): print(f["key"] + "\t" + f["links"]["self"]); break' 2>/dev/null || true)"
+  if [[ -n "$listing" ]]; then
+    MODEL_V2="$MODEL_DIR/$(cut -f1 <<<"$listing")"
+    download "$(cut -f2 <<<"$listing")" "$MODEL_V2" || MODEL_V2=""
+  else
+    existing="$(ls "$MODEL_DIR"/cns-v2*.zip 2>/dev/null | head -1 || true)"
+    if [[ -n "$existing" ]]; then
+      MODEL_V2="$existing"; ok "already present: $MODEL_V2"
     else
-      existing="$(ls "$MODEL_DIR"/cns-v2*.zip 2>/dev/null | head -1 || true)"
-      if [[ -n "$existing" ]]; then
-        MODEL_V2="$existing"; ok "already present: $MODEL_V2"
-      else
-        warn "could not reach Zenodo record $MODEL_V2_ZENODO_RECORD (Zenodo sometimes blocks script downloads; a browser usually works). Download the model zip from https://zenodo.org/records/$MODEL_V2_ZENODO_RECORD into $MODEL_DIR and rerun ./install.sh --skip-system --skip-conda --skip-r"
-      fi
+      warn "could not reach Zenodo record $MODEL_V2_ZENODO_RECORD (Zenodo sometimes blocks script downloads; a browser usually works). Download the model zip from https://zenodo.org/records/$MODEL_V2_ZENODO_RECORD into $MODEL_DIR and rerun ./install.sh --skip-system --skip-conda --skip-r"
     fi
   fi
 else
   # keep paths to files a previous run already downloaded
-  [[ $DO_V2 -eq 1 ]] && MODEL_V2="$(ls "$MODEL_DIR"/cns-v2*.zip 2>/dev/null | head -1 || true)"
+  MODEL_V2="$(ls "$MODEL_DIR"/cns-v2*.zip 2>/dev/null | head -1 || true)"
 fi
 
 # ---- 5. config_local.yml ----------------------------------------------------
@@ -306,9 +301,7 @@ model_v2="$(existing_file "$MODEL_V2")"
   echo "samtools_bin: $(yq "$(tool_path "$BIN_V1" samtools samtools)")"
   echo "modkit_bin: $(yq "$(tool_path "$BIN_V1" modkit modkit)")"
   echo "sturgeon_bin: $(yq "$(tool_path "$BIN_V1" sturgeon sturgeon)")"
-  if [[ $DO_V2 -eq 1 ]]; then
-    echo "sturgeon_v2_bin: $(yq "$(tool_path "$BIN_V2" sturgeon-v2 sturgeon-v2)")"
-  fi
+  echo "sturgeon_v2_bin: $(yq "$(tool_path "$BIN_V2" sturgeon-v2 sturgeon-v2)")"
   if [[ ${#extra_dirs[@]} -gt 0 ]]; then
     echo "extra_path_dirs:"
     for d in "${extra_dirs[@]}"; do echo "  - $(yq "$d")"; done
@@ -328,7 +321,7 @@ for f in probelocs_chm13.bed chm13_v2.0_bins.rds bins_export.bed color_translati
   [[ -n "$(ref "$f")" ]] || warn "reference file missing: $REF_DIR/$f"
 done
 [[ -n "$(existing_file "$MODEL_V1")" ]] || warn "Sturgeon v1 model missing: $MODEL_V1"
-[[ $DO_V2 -eq 1 && -z "$model_v2" ]] && warn "no Sturgeon v2 model; the app will run v1 only"
+[[ -n "$model_v2" ]] || warn "Sturgeon v2 model missing from $MODEL_DIR; the app needs it to start a run"
 
 # ---- summary ----------------------------------------------------------------
 echo

@@ -1,12 +1,12 @@
 valid_cfg <- function() {
   dir <- tempfile("cfg_"); dir.create(dir)
   bam_pass <- file.path(dir, "bam_pass"); dir.create(bam_pass)
-  files <- file.path(dir, c("probes.bed", "model.zip", "bins.rds", "ref.bed", "colors.rds"))
+  files <- file.path(dir, c("probes.bed", "model.zip", "bins.rds", "ref.bed", "colors.rds", "model_v2.zip"))
   file.create(files)
   list(bam_pass_folder = bam_pass, output_folder = file.path(dir, "case"),
        probes_file = files[1], model_file_v1 = files[2], bins_rds = files[3],
        cnvplot_reffile = files[4], color_translation_rds = files[5],
-       model_file_v2 = "", sturgeon_v2_bin = "sturgeon-v2", sturgeon_v2_mode = "single",
+       model_file_v2 = files[6], sturgeon_v2_bin = "sturgeon-v2", sturgeon_v2_mode = "single",
        sturgeon_v2_file_type = "bed")
 }
 
@@ -36,9 +36,16 @@ test_that("relative output and bam_pass folders are rejected", {
   expect_match(validate_config(cfg), "absolute path", all = FALSE)
 })
 
-test_that("v2 parameters become required once a v2 model is set", {
+test_that("the v2 model is required, like the v1 model", {
+  cfg <- valid_cfg(); cfg$model_file_v2 <- ""
+  expect_match(validate_config(cfg), "'model_file_v2' is empty", all = FALSE)
+})
+
+test_that("the v2 parameters are required, except num_cpgs and num_samplings", {
   cfg <- valid_cfg()
-  cfg$model_file_v2 <- cfg$model_file_v1
+  cfg$sturgeon_v2_num_cpgs <- ""
+  cfg$sturgeon_v2_num_samplings <- NA
+  expect_length(validate_config(cfg), 0)
   cfg$sturgeon_v2_file_type <- ""
   cfg$sturgeon_v2_bin <- NA
   problems <- validate_config(cfg)
@@ -101,7 +108,7 @@ test_that("resolve_tool finds tools by full path, in extra PATH directories, and
 setup_cfg <- function() {
   cfg <- valid_cfg()
   bin_dir <- tempfile("bin_"); dir.create(bin_dir)
-  for (t in c("samtools", "modkit", "sturgeon")) fake_tool(bin_dir, t)
+  for (t in c("samtools", "modkit", "sturgeon", "sturgeon-v2")) fake_tool(bin_dir, t)
   dir.create(file.path(cfg$bam_pass_folder, "barcode01"))
   c(cfg, list(samtools_bin = "samtools", modkit_bin = "modkit", sturgeon_bin = "sturgeon",
               extra_path_dirs = bin_dir, barcode = "01", use_unclassified = FALSE,
@@ -113,7 +120,8 @@ test_that("check_setup reports a complete setup as ok", {
   res <- check_setup(setup_cfg())
   expect_false(any(res$status %in% c("problem", "warning")))
   expect_equal(status_of(res, "samtools"), "ok")
-  expect_equal(status_of(res, "sturgeon-v2"), "not used")
+  expect_equal(status_of(res, "sturgeon-v2"), "ok")
+  expect_equal(status_of(res, "Sturgeon v2 model"), "ok")
   expect_equal(status_of(res, "CNV gene labels"), "not used")
   expect_match(res$detail[res$item == "Output folder"], "will be created")
 })
@@ -132,11 +140,13 @@ test_that("check_setup reports missing tools, files and folders", {
   expect_equal(status_of(res, "samtools"), "ok")
 })
 
-test_that("check_setup checks sturgeon-v2 only when a v2 model is set", {
+test_that("check_setup requires sturgeon-v2 and the v2 model", {
   cfg <- setup_cfg()
-  cfg$model_file_v2 <- cfg$model_file_v1
   cfg$sturgeon_v2_bin <- "sturgeon-v2-absent"
-  expect_equal(status_of(check_setup(cfg), "sturgeon-v2"), "problem")
+  cfg$model_file_v2 <- ""
+  res <- check_setup(cfg)
+  expect_equal(status_of(res, "sturgeon-v2"), "problem")
+  expect_equal(status_of(res, "Sturgeon v2 model"), "problem")
   fake_tool(cfg$extra_path_dirs, "sturgeon-v2-absent")
   expect_equal(status_of(check_setup(cfg), "sturgeon-v2"), "ok")
 })

@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [Step-by-step installation guide](docs/install-guide.md) with screenshots.
 
 ### Changed
+- Sturgeon v2 is no longer optional: every run classifies with both v1 and v2. `model_file_v2` is required (Setup, configuration check and **Check installation**), and `install.sh` always sets up sturgeon-v2 (the `--no-v2` option is gone).
 - The log names the folder(s) being watched, and warns when the MinKNOW folder or the barcode folder doesn't exist.
 - Long log lines wrap instead of being cut off.
 - **Start monitoring** refuses to start when samtools, modkit or sturgeon can't be found, instead of failing in the first iteration.

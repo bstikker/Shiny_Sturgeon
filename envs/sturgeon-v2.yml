@@ -1,4 +1,4 @@
-# Conda environment for sturgeon-v2 (optional second classifier).
+# Conda environment for sturgeon-v2 (the second classifier; the app runs v1 and v2).
 #
 #   conda env create -f envs/sturgeon-v2.yml
 #

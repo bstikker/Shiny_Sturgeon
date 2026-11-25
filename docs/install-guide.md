@@ -96,7 +96,6 @@ At the end you'll see either **Installation complete.** or a list of warnings. E
   --data-dir DIR             where models and reference files go (default: ./resources)
   --yes, -y                  don't ask before each step
   --accept-sturgeon-license  accept the Sturgeon license without being asked (needed with --yes)
-  --no-v2                    skip sturgeon-v2 (its environment and model)
   --skip-system              don't install system libraries (no sudo needed)
   --skip-conda               don't create or update the conda environments
   --skip-r                   don't install R packages

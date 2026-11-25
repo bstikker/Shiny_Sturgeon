@@ -102,12 +102,10 @@ ui <- fluidPage(
           textInput("class_mapping_v2", "v2-to-v1 class mapping .csv (optional, gives v2 classes their v1 color)",
                      value = default_cfg$class_mapping_v2 %||% "", width = "100%"),
 
-          h4("Sturgeon v2 (optional)"),
-          helpText("Leave the model blank to run v1 only. Fill it in and the app runs",
-                    "both models every iteration, with two separate confidence-over-time plots.",
-                    "v2 has its own CLI with its own required parameters (below) -- all of them",
-                    "become mandatory once a v2 model is set."),
-          textInput("model_file_v2", "Sturgeon v2 model file -- optional",
+          h4("Sturgeon v2"),
+          helpText("The app runs Sturgeon v1 and v2 every iteration, with two separate",
+                    "confidence-over-time plots. v2 has its own CLI with its own parameters (below)."),
+          textInput("model_file_v2", "Sturgeon v2 model (.zip)",
                      value = default_cfg$model_file_v2, width = "100%"),
           textInput("probes_file_v2", "Probes file for v2 -- only if different from v1 above",
                      value = default_cfg$probes_file_v2, width = "100%"),
@@ -524,26 +522,24 @@ server <- function(input, output, session) {
       write.csv(rv$progress_v1, file = file.path(cfg$output_folder, "classifier_progress_v1.txt"),
                 row.names = FALSE)
 
-      if (nzchar(cfg$model_file_v2 %||% "")) {
-        # reuse v1's cumulative bed unless a different probes file was given for v2
-        if (nzchar(cfg$probes_file_v2 %||% "")) {
-          bed_dir_v2 <- file.path(cfg$output_folder, "bed_v2")
-          run_sturgeon_inputtobed(modkit_txt_dir, bed_dir_v2, cfg$probes_file_v2, cfg$sturgeon_bin, log_fun = add_log)
-        } else {
-          bed_dir_v2 <- bed_dir_v1
-        }
-        result_csv_v2 <- run_sturgeon_v2_predict(
-          bed_dir_v2, cfg$model_file_v2,
-          output_file = file.path(iteration_dir, "v2", "sturgeon_v2_result.csv"),
-          sturgeon_v2_bin = cfg$sturgeon_v2_bin, mode = cfg$sturgeon_v2_mode,
-          num_cpgs = cfg$sturgeon_v2_num_cpgs, num_samplings = cfg$sturgeon_v2_num_samplings,
-          file_type = cfg$sturgeon_v2_file_type, log_fun = add_log
-        )
-        parsed_v2 <- parse_sturgeon_v2_result(result_csv_v2)
-        rv$progress_v2 <- update_progress(rv$progress_v2, parsed_v2, paste0("iteration_", rv$iteration))
-        write.csv(rv$progress_v2, file = file.path(cfg$output_folder, "classifier_progress_v2.txt"),
-                  row.names = FALSE)
+      # reuse v1's cumulative bed unless a different probes file was given for v2
+      if (nzchar(cfg$probes_file_v2 %||% "")) {
+        bed_dir_v2 <- file.path(cfg$output_folder, "bed_v2")
+        run_sturgeon_inputtobed(modkit_txt_dir, bed_dir_v2, cfg$probes_file_v2, cfg$sturgeon_bin, log_fun = add_log)
+      } else {
+        bed_dir_v2 <- bed_dir_v1
       }
+      result_csv_v2 <- run_sturgeon_v2_predict(
+        bed_dir_v2, cfg$model_file_v2,
+        output_file = file.path(iteration_dir, "v2", "sturgeon_v2_result.csv"),
+        sturgeon_v2_bin = cfg$sturgeon_v2_bin, mode = cfg$sturgeon_v2_mode,
+        num_cpgs = cfg$sturgeon_v2_num_cpgs, num_samplings = cfg$sturgeon_v2_num_samplings,
+        file_type = cfg$sturgeon_v2_file_type, log_fun = add_log
+      )
+      parsed_v2 <- parse_sturgeon_v2_result(result_csv_v2)
+      rv$progress_v2 <- update_progress(rv$progress_v2, parsed_v2, paste0("iteration_", rv$iteration))
+      write.csv(rv$progress_v2, file = file.path(cfg$output_folder, "classifier_progress_v2.txt"),
+                row.names = FALSE)
 
       add_log(sprintf("Iteration %d complete.", rv$iteration))
     }, error = function(e) {
@@ -616,11 +612,6 @@ server <- function(input, output, session) {
   }, digits = 3)
 
   output$confidencePlotV2 <- renderPlot({
-    if (is.null(rv$cfg) || !nzchar(rv$cfg$model_file_v2 %||% "")) {
-      plot.new()
-      title(main = "Sturgeon v2 not configured (see Setup tab)")
-      return(invisible(NULL))
-    }
     req(rv$color_translation)
     plot_confidence_over_time(rv$progress_v2, rv$color_translation, plot_title = "Confidence over time -- Sturgeon v2",
                                 class_mapping = rv$class_mapping)
@@ -659,7 +650,6 @@ server <- function(input, output, session) {
     filename = function() paste0("confidence_over_time_v2_", format(Sys.time(), "%Y%m%d_%H%M"), ".pdf"),
     content = function(file) {
       req(rv$cfg, cancelOutput = TRUE)
-      validate(need(nzchar(rv$cfg$model_file_v2 %||% ""), "Sturgeon v2 is not configured for this case."))
       pdf(file)
       plot_confidence_over_time(rv$progress_v2, rv$color_translation, plot_title = "Confidence over time -- Sturgeon v2",
                                 class_mapping = rv$class_mapping)
