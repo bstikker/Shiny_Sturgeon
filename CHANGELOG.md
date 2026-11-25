@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
-- `install.sh`: installs the system libraries, creates both conda environments (Sturgeon v1 needs Python < 3.10, sturgeon-v2 needs >= 3.10), runs `renv::restore()`, downloads the Sturgeon models and the Sturgeon v1 `R_scripts/` reference files from their original sources after the Sturgeon license is accepted, and writes `config_local.yml` with all tool and file paths.
+- `install.sh`: installs the system libraries, creates both conda environments (Sturgeon v1 needs Python < 3.10, sturgeon-v2 needs >= 3.10), runs `renv::restore()`, downloads the Sturgeon models and the Sturgeon v1 `R_scripts/` reference files from their original sources after the Sturgeon license is accepted, and writes `config_local.yml` with all tool and file paths. Downloads identify themselves as `Shiny-Sturgeon-installer`, because Zenodo refuses unnamed script requests from some networks.
 - `config_local.yml` is loaded on top of `config_default.yml`, so after `install.sh` the Setup tab only needs the MinKNOW folder, barcode and output folder.
 - `run_app.sh` starts the app and opens it in the browser.
 - **Check installation** button on the Setup tab: lists every tool, reference file and folder with ok / problem / warning.

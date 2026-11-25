@@ -44,6 +44,9 @@ STURGEON_V1_FILES=(probelocs_chm13.bed chm13_v2.0_bins.rds bins_export.bed color
 MODEL_V1_URL="https://www.dropbox.com/s/yzca4exl40x9ukw/general.zip?dl=1"
 MODEL_V2_ZENODO_RECORD="22899108"
 MINIFORGE_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-$(uname -m).sh"
+# Zenodo refuses anonymous script requests from some networks ("unusual
+# traffic", HTTP 403), but accepts them once the client names itself
+USER_AGENT="Shiny-Sturgeon-installer"
 ENV_V1="sturgeon"
 ENV_V2="sturgeon-v2"
 
@@ -103,7 +106,7 @@ download() {  # download URL DEST -- skips files that are already there
   local url="$1" dest="$2"
   if [[ -s "$dest" ]]; then ok "already present: $dest"; return 0; fi
   echo "    downloading $(basename "$dest") ..."
-  if curl -fL --retry 3 --progress-bar -o "$dest.part" "$url"; then
+  if curl -fL --retry 3 -A "$USER_AGENT" --progress-bar -o "$dest.part" "$url"; then
     mv "$dest.part" "$dest"
     ok "$dest"
   else
@@ -161,7 +164,7 @@ if [[ $DO_CONDA -eq 1 ]]; then
     echo "    conda was not found."
     if ask "Install Miniforge (a small conda) into $HOME/miniforge3?"; then
       installer="$(mktemp --suffix=.sh)"
-      curl -fsSL -o "$installer" "$MINIFORGE_URL" || fail "could not download Miniforge from $MINIFORGE_URL"
+      curl -fsSL -A "$USER_AGENT" -o "$installer" "$MINIFORGE_URL" || fail "could not download Miniforge from $MINIFORGE_URL"
       bash "$installer" -b -p "$HOME/miniforge3"
       rm -f "$installer"
       CONDA="$HOME/miniforge3/bin/conda"
@@ -254,7 +257,7 @@ if [[ $DO_DOWNLOADS -eq 1 ]]; then
   if [[ $DO_V2 -eq 1 ]]; then
     # Ask Zenodo's API for the record's files, so a renamed zip still works
     py="$(command -v python3 || true)"; [[ -z "$py" && -n "$BIN_V2" ]] && py="$BIN_V2/python"
-    listing="$(curl -fsSL "https://zenodo.org/api/records/$MODEL_V2_ZENODO_RECORD" 2>/dev/null \
+    listing="$(curl -fsSL -A "$USER_AGENT" "https://zenodo.org/api/records/$MODEL_V2_ZENODO_RECORD" 2>/dev/null \
       | "${py:-python3}" -c 'import json,sys
 for f in json.load(sys.stdin).get("files", []):
     if f["key"].endswith(".zip"): print(f["key"] + "\t" + f["links"]["self"]); break' 2>/dev/null || true)"
@@ -266,7 +269,7 @@ for f in json.load(sys.stdin).get("files", []):
       if [[ -n "$existing" ]]; then
         MODEL_V2="$existing"; ok "already present: $MODEL_V2"
       else
-        warn "could not reach Zenodo record $MODEL_V2_ZENODO_RECORD. Download the model zip from https://zenodo.org/records/$MODEL_V2_ZENODO_RECORD into $MODEL_DIR and rerun ./install.sh --skip-system --skip-conda --skip-r"
+        warn "could not reach Zenodo record $MODEL_V2_ZENODO_RECORD (Zenodo sometimes blocks script downloads; a browser usually works). Download the model zip from https://zenodo.org/records/$MODEL_V2_ZENODO_RECORD into $MODEL_DIR and rerun ./install.sh --skip-system --skip-conda --skip-r"
       fi
     fi
   fi
