@@ -32,10 +32,17 @@ source(file.path(app_dir, "config.R"))
 `%||%` <- function(a, b) if (is.null(a) || (length(a) == 1 && !nzchar(as.character(a)))) b else a
 
 default_cfg <- load_config(app_dir)
+installed_by_script <- file.exists(file.path(app_dir, "config_local.yml"))
+
+status_style <- c("ok" = "color:#1a7f37;", "problem" = "color:#cf222e;font-weight:bold;",
+                  "warning" = "color:#9a6700;font-weight:bold;", "not used" = "color:#6e7781;")
 
 # ---- UI ----------------------------------------------------------------
 
 ui <- fluidPage(
+  # wrap long log lines (folder paths) instead of hiding them off to the side
+  tags$head(tags$style(HTML(
+    "#logOutput { white-space: pre-wrap; word-break: normal; overflow-wrap: anywhere; background: inherit; color: inherit; border: none; }"))),
   titlePanel("Sturgeon Live Intraoperative Classifier"),
 
   tabsetPanel(
@@ -43,6 +50,12 @@ ui <- fluidPage(
 
     tabPanel("Setup",
       br(),
+      if (installed_by_script) {
+        div(class = "alert alert-info",
+            strong("Tools and reference files were filled in by install.sh."),
+            " For a new case you only need to set the MinKNOW folder, the barcode and an output folder,",
+            " then click ", strong("Check installation"), " and ", strong("Save configuration"), ".")
+      },
       fluidRow(
         column(6,
           h4("Sequencing run"),
@@ -89,12 +102,10 @@ ui <- fluidPage(
           textInput("class_mapping_v2", "v2-to-v1 class mapping .csv (optional, gives v2 classes their v1 color)",
                      value = default_cfg$class_mapping_v2 %||% "", width = "100%"),
 
-          h4("Sturgeon v2 (optional)"),
-          helpText("Leave the model blank to run v1 only. Fill it in and the app runs",
-                    "both models every iteration, with two separate confidence-over-time plots.",
-                    "v2 has its own CLI with its own required parameters (below) -- all of them",
-                    "become mandatory once a v2 model is set."),
-          textInput("model_file_v2", "Sturgeon v2 model file -- optional",
+          h4("Sturgeon v2"),
+          helpText("The app runs Sturgeon v1 and v2 every iteration, with two separate",
+                    "confidence-over-time plots. v2 has its own CLI with its own parameters (below)."),
+          textInput("model_file_v2", "Sturgeon v2 model (.zip)",
                      value = default_cfg$model_file_v2, width = "100%"),
           textInput("probes_file_v2", "Probes file for v2 -- only if different from v1 above",
                      value = default_cfg$probes_file_v2, width = "100%"),
@@ -113,9 +124,11 @@ ui <- fluidPage(
       br(),
       fluidRow(
         column(12,
+          actionButton("check_btn", "Check installation", class = "btn-info"),
           actionButton("save_cfg_btn", "Save configuration", class = "btn-primary"),
           actionButton("load_cfg_btn", "Load config.yml from output folder"),
           br(), br(),
+          uiOutput("checkResults"),
           verbatimTextOutput("configStatus")
         )
       )
@@ -262,6 +275,39 @@ server <- function(input, output, session) {
 
   # ---- Setup tab -------------------------------------------------------
 
+  check_result <- reactiveVal(NULL)
+
+  observeEvent(input$check_btn, {
+    check_result(check_setup(gather_cfg_from_inputs()))
+  })
+
+  output$checkResults <- renderUI({
+    res <- check_result()
+    if (is.null(res)) return(NULL)
+    n_problem <- sum(res$status == "problem")
+    n_warning <- sum(res$status == "warning")
+    summary <- if (n_problem > 0) {
+      div(class = "alert alert-danger", sprintf(
+        "%d problem(s) found: a run would fail. Fix the red rows below, then check again.", n_problem))
+    } else if (n_warning > 0) {
+      div(class = "alert alert-warning", sprintf(
+        "Everything needed was found, with %d warning(s) worth a look.", n_warning))
+    } else {
+      div(class = "alert alert-success", "Everything was found. You can save the configuration and start a run.")
+    }
+    tagList(
+      summary,
+      tags$table(class = "table table-condensed", style = "width:auto;",
+        tags$thead(tags$tr(tags$th("Item"), tags$th("Status"), tags$th("Details"))),
+        tags$tbody(lapply(seq_len(nrow(res)), function(i) {
+          tags$tr(tags$td(res$item[i]),
+                  tags$td(style = status_style[[res$status[i]]], res$status[i]),
+                  tags$td(style = "font-family:monospace;font-size:12px;", res$detail[i]))
+        }))
+      )
+    )
+  })
+
   observeEvent(input$save_cfg_btn, {
     cfg <- gather_cfg_from_inputs()
     problems <- validate_config(cfg)
@@ -290,6 +336,12 @@ server <- function(input, output, session) {
   observeEvent(input$start_btn, {
     cfg <- gather_cfg_from_inputs()
     problems <- validate_config(cfg)
+    # validate_config() covers files and folders; also catch tools that can't
+    # be found, which would otherwise only fail inside the first iteration
+    checks <- check_setup(cfg)
+    tool_rows <- checks[checks$item %in% c("samtools", "modkit", "sturgeon (v1)", "sturgeon-v2") &
+                          checks$status == "problem", ]
+    problems <- c(problems, sprintf("%s %s", tool_rows$item, tool_rows$detail))
     if (length(problems) > 0) {
       showModal(modalDialog(
         title = "Can't start -- fix configuration first",
@@ -377,7 +429,9 @@ server <- function(input, output, session) {
     }
 
     rv$running <- TRUE
-    add_log("Monitoring started.")
+    watch <- describe_watch_folders(cfg$bam_pass_folder, cfg$barcode, cfg$use_unclassified)
+    add_log(paste0("Monitoring started. Watching ", watch$folders[1],
+                   if (isTRUE(cfg$use_unclassified)) " and unclassified/ next to it" else ""))
   })
 
   observeEvent(input$stop_btn, {
@@ -421,7 +475,7 @@ server <- function(input, output, session) {
     )
 
     if (length(new_bams) == 0) {
-      add_log("No new BAM files, waiting...")
+      for (line in no_new_bams_message(cfg$bam_pass_folder, cfg$barcode, cfg$use_unclassified)) add_log(line)
       return(invisible(NULL))
     }
 
@@ -468,26 +522,24 @@ server <- function(input, output, session) {
       write.csv(rv$progress_v1, file = file.path(cfg$output_folder, "classifier_progress_v1.txt"),
                 row.names = FALSE)
 
-      if (nzchar(cfg$model_file_v2 %||% "")) {
-        # reuse v1's cumulative bed unless a different probes file was given for v2
-        if (nzchar(cfg$probes_file_v2 %||% "")) {
-          bed_dir_v2 <- file.path(cfg$output_folder, "bed_v2")
-          run_sturgeon_inputtobed(modkit_txt_dir, bed_dir_v2, cfg$probes_file_v2, cfg$sturgeon_bin, log_fun = add_log)
-        } else {
-          bed_dir_v2 <- bed_dir_v1
-        }
-        result_csv_v2 <- run_sturgeon_v2_predict(
-          bed_dir_v2, cfg$model_file_v2,
-          output_file = file.path(iteration_dir, "v2", "sturgeon_v2_result.csv"),
-          sturgeon_v2_bin = cfg$sturgeon_v2_bin, mode = cfg$sturgeon_v2_mode,
-          num_cpgs = cfg$sturgeon_v2_num_cpgs, num_samplings = cfg$sturgeon_v2_num_samplings,
-          file_type = cfg$sturgeon_v2_file_type, log_fun = add_log
-        )
-        parsed_v2 <- parse_sturgeon_v2_result(result_csv_v2)
-        rv$progress_v2 <- update_progress(rv$progress_v2, parsed_v2, paste0("iteration_", rv$iteration))
-        write.csv(rv$progress_v2, file = file.path(cfg$output_folder, "classifier_progress_v2.txt"),
-                  row.names = FALSE)
+      # reuse v1's cumulative bed unless a different probes file was given for v2
+      if (nzchar(cfg$probes_file_v2 %||% "")) {
+        bed_dir_v2 <- file.path(cfg$output_folder, "bed_v2")
+        run_sturgeon_inputtobed(modkit_txt_dir, bed_dir_v2, cfg$probes_file_v2, cfg$sturgeon_bin, log_fun = add_log)
+      } else {
+        bed_dir_v2 <- bed_dir_v1
       }
+      result_csv_v2 <- run_sturgeon_v2_predict(
+        bed_dir_v2, cfg$model_file_v2,
+        output_file = file.path(iteration_dir, "v2", "sturgeon_v2_result.csv"),
+        sturgeon_v2_bin = cfg$sturgeon_v2_bin, mode = cfg$sturgeon_v2_mode,
+        num_cpgs = cfg$sturgeon_v2_num_cpgs, num_samplings = cfg$sturgeon_v2_num_samplings,
+        file_type = cfg$sturgeon_v2_file_type, log_fun = add_log
+      )
+      parsed_v2 <- parse_sturgeon_v2_result(result_csv_v2)
+      rv$progress_v2 <- update_progress(rv$progress_v2, parsed_v2, paste0("iteration_", rv$iteration))
+      write.csv(rv$progress_v2, file = file.path(cfg$output_folder, "classifier_progress_v2.txt"),
+                row.names = FALSE)
 
       add_log(sprintf("Iteration %d complete.", rv$iteration))
     }, error = function(e) {
@@ -560,11 +612,6 @@ server <- function(input, output, session) {
   }, digits = 3)
 
   output$confidencePlotV2 <- renderPlot({
-    if (is.null(rv$cfg) || !nzchar(rv$cfg$model_file_v2 %||% "")) {
-      plot.new()
-      title(main = "Sturgeon v2 not configured (see Setup tab)")
-      return(invisible(NULL))
-    }
     req(rv$color_translation)
     plot_confidence_over_time(rv$progress_v2, rv$color_translation, plot_title = "Confidence over time -- Sturgeon v2",
                                 class_mapping = rv$class_mapping)
@@ -603,7 +650,6 @@ server <- function(input, output, session) {
     filename = function() paste0("confidence_over_time_v2_", format(Sys.time(), "%Y%m%d_%H%M"), ".pdf"),
     content = function(file) {
       req(rv$cfg, cancelOutput = TRUE)
-      validate(need(nzchar(rv$cfg$model_file_v2 %||% ""), "Sturgeon v2 is not configured for this case."))
       pdf(file)
       plot_confidence_over_time(rv$progress_v2, rv$color_translation, plot_title = "Confidence over time -- Sturgeon v2",
                                 class_mapping = rv$class_mapping)

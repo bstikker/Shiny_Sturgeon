@@ -32,3 +32,24 @@ test_that("find_new_bams returns nothing for a barcode folder that doesn't exist
   root <- make_bam_pass()
   expect_length(find_new_bams(root, "05", FALSE, character(0)), 0)
 })
+
+test_that("the 'no new BAMs' log message names the watched folders", {
+  bam_pass <- tempfile("bam_pass_"); dir.create(file.path(bam_pass, "barcode03"), recursive = TRUE)
+  msg <- no_new_bams_message(bam_pass, "03", FALSE)
+  expect_length(msg, 1)
+  expect_match(msg, file.path(bam_pass, "barcode03"), fixed = TRUE)
+
+  msg <- no_new_bams_message(bam_pass, "03", TRUE)
+  expect_match(msg[1], "unclassified", fixed = TRUE)
+  expect_match(msg[2], "WARNING: .*unclassified does not exist")
+})
+
+test_that("the 'no new BAMs' log message warns when the barcode or MinKNOW folder is missing", {
+  bam_pass <- tempfile("bam_pass_"); dir.create(bam_pass)
+  msg <- no_new_bams_message(bam_pass, "05", FALSE)
+  expect_match(msg[2], "barcode05 does not exist")
+
+  msg <- no_new_bams_message(file.path(bam_pass, "typo"), "05", TRUE)
+  expect_length(msg, 2)
+  expect_match(msg[2], "MinKNOW folder .*typo does not exist")
+})

@@ -51,7 +51,7 @@ During intraoperative sequencing, MinKNOW basecalls, calls methylation, and alig
 - `samtools`
 - [`modkit`](https://github.com/nanoporetech/modkit)
 - [`sturgeon`](https://github.com/UMCUGenetics/sturgeon) (v1)
-- [`sturgeon-v2`](https://github.com/deRidderLab/sturgeon-v2) (v2, optional)
+- [`sturgeon-v2`](https://github.com/deRidderLab/sturgeon-v2) (v2)
 
 **R** with shiny, yaml, QDNAseq and DNAcopy. The exact versions are recorded in `renv.lock` (see [Installation](#installation)).
 
@@ -64,11 +64,39 @@ During intraoperative sequencing, MinKNOW basecalls, calls methylation, and alig
   - `color_translation.rds` — tumor class to plot color
   - `relevant_genes_with_chm13v2_1Mb_bin_nrs.bed` — gene labels on the CNV plot (optional)
 - a Sturgeon v1 model (`general.zip`; see the Sturgeon README)
-- optionally, a sturgeon-v2 model (e.g. `cns-v2.5.zip`, [Zenodo](https://zenodo.org/records/22899108))
+- a sturgeon-v2 model (e.g. `cns-v2.5.zip`, [Zenodo](https://zenodo.org/records/22899108))
 
 **Data source:** a MinKNOW run configured to basecall, call methylation, and align in real time, writing to a `bam_pass/` folder containing `barcode<NN>/` and `unclassified/` subfolders.
 
 ## Installation
+
+**New to the command line?** Follow the [step-by-step installation guide](docs/install-guide.md), with screenshots.
+
+### Quick install
+
+On Ubuntu/Debian with R 4.6 installed:
+
+```bash
+git clone https://github.com/tgac-vumc/Shiny_Sturgeon.git
+```
+
+```bash
+cd Shiny_Sturgeon && ./install.sh
+```
+
+`install.sh` asks before each step, and can be run again safely. It:
+
+1. installs the system libraries R needs to build its packages (apt, needs sudo);
+2. creates the two conda environments in [`envs/`](envs/) (`sturgeon`: samtools, modkit and Sturgeon v1; `sturgeon-v2`), installing Miniforge first if there is no conda;
+3. runs `renv::restore()`;
+4. downloads the Sturgeon v1 model, the sturgeon-v2 model and the Sturgeon v1 `R_scripts/` reference files into `resources/`, after you accept the Sturgeon license (these files are not bundled with this app; see [Requirements](#requirements));
+5. writes `config_local.yml` (not in git) with the full paths of all tools and files.
+
+The app then opens with those paths filled in, so the Setup tab only needs the MinKNOW folder, the barcode and the output folder. Start it with `./run_app.sh`. See `./install.sh --help` for options such as `--yes --accept-sturgeon-license` (unattended) and `--data-dir`.
+
+### Manual install
+
+The steps below are what `install.sh` does.
 
 ```bash
 git clone https://github.com/tgac-vumc/Shiny_Sturgeon.git
@@ -97,7 +125,7 @@ conda env create -f envs/sturgeon.yml
 conda env create -f envs/sturgeon-v2.yml
 ```
 
-Then confirm the external tools are reachable:
+Download the reference and model files listed under [Requirements](#requirements). Then confirm the external tools are reachable:
 
 ```bash
 which samtools modkit sturgeon sturgeon-v2
@@ -121,7 +149,7 @@ Version 1.0.0 was validated by replaying a previous case on Linux and comparing 
 
 ## Configuration
 
-All settings live in a YAML config, editable either by hand (`config_default.yml`) or from the app's **Setup tab**, which saves a per-case copy to `<output_folder>/config.yml`.
+All settings live in a YAML config, editable either by hand or from the app's **Setup tab**, which saves a per-case copy to `<output_folder>/config.yml`. When the app starts, it reads `config_default.yml` (the template), then `config_local.yml` if `install.sh` wrote one (this machine's tool and reference paths); loading a case's `config.yml` overrides both.
 
 | Field | Purpose |
 |---|---|
@@ -135,19 +163,19 @@ All settings live in a YAML config, editable either by hand (`config_default.yml
 | `extra_path_dirs` | directories to prepend to `PATH` (e.g. a conda env's `bin/`) |
 | `probes_file`, `model_file_v1`, `bins_rds`, `cnvplot_reffile`, `color_translation_rds` | reference/model files (see [Requirements](#requirements)) |
 | `class_mapping_v2` | optional CSV that gives v2 classes the color of their v1 counterpart — see [below](#running-two-classifier-models-v1--v2) |
-| `model_file_v2`, `sturgeon_v2_bin`, `sturgeon_v2_mode`, `sturgeon_v2_num_cpgs`, `sturgeon_v2_num_samplings`, `sturgeon_v2_file_type` | optional sturgeon-v2 configuration — see [below](#running-two-classifier-models-v1--v2) |
+| `model_file_v2`, `sturgeon_v2_bin`, `sturgeon_v2_mode`, `sturgeon_v2_num_cpgs`, `sturgeon_v2_num_samplings`, `sturgeon_v2_file_type` | sturgeon-v2 configuration (`num_cpgs` and `num_samplings` are optional) — see [below](#running-two-classifier-models-v1--v2) |
 
 `output_folder` and `bam_pass_folder` must be full absolute paths (not `~` or a relative path) — the app validates this before letting you start.
 
 ## Usage
 
-```r
-shiny::runApp("Shiny_Sturgeon")
+```bash
+./run_app.sh
 ```
 
-or open `app.R` in RStudio and click **Run App**.
+or run `shiny::runApp("Shiny_Sturgeon")` in R, or open `app.R` in RStudio and click **Run App**.
 
-1. **Setup tab** — fill in the MinKNOW folder, barcode, an empty output folder for this case, and all reference file paths. Click **Save configuration**.
+1. **Setup tab** — fill in the MinKNOW folder, barcode, an empty output folder for this case, and (unless `install.sh` filled them in) the tool and reference file paths. Click **Check installation** to confirm every tool, file and folder is found, then **Save configuration**.
 2. **Live Run tab** — click **Start monitoring**. The app checks for new BAMs on the configured interval, processes each new batch through the full pipeline, and updates the confidence-over-time plot and top-calls table live. **Generate CNV plot now** triggers an off-schedule CNV rebuild at any point.
 3. **Stop** pauses monitoring without losing any progress. **Reset for new case** clears the in-app state so you can point Setup at a fresh output folder for the next case, without restarting the app.
 
@@ -195,7 +223,7 @@ If the app or its R session is stopped mid-case — intentionally or not — sta
 
 ## Running two classifier models (v1 + v2)
 
-Once `model_file_v2` is set, both models run automatically every iteration and get their own confidence-over-time plot and top-calls table — no need to choose one. The expensive step (`sturgeon inputtobed`) is shared between them when they use the same probes file, so adding v2 only adds one extra `predict` call, not a second full pipeline.
+Both models run every iteration and get their own confidence-over-time plot and top-calls table. `model_file_v2` is required, like `model_file_v1`. The expensive step (`sturgeon inputtobed`) is shared between them when they use the same probes file, so v2 only adds one extra `predict` call, not a second full pipeline.
 
 `NUM_CPGS` and `NUM_SAMPLINGS` are left blank by default, in which case sturgeon-v2 uses its own defaults (all available CpG sites, 1 random sampling) — fill them in only if you want to override those.
 
