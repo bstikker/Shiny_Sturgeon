@@ -254,9 +254,9 @@ After `install.sh`, run a test case with synthetic reads through the whole pipel
    This writes `~/sturgeon_test/case/config.yml`, which uses your installed tools and reference files and points at `~/sturgeon_test/bam_pass/`. It then writes a synthetic BAM file into `bam_pass/barcode01/` every 30 seconds, like MinKNOW during a run. Leave it running.
 2. In a second terminal, start the app with `./run_app.sh`.
 3. On the **Setup** tab, enter `~/sturgeon_test/case` as the output folder (use the full path, e.g. `/home/<you>/sturgeon_test/case`), click **Load config.yml from output folder** and then **Check installation**. Every row should be green.
-4. On the **Live Run** tab, click **Start monitoring**. Each new file becomes one iteration: the log shows the samtools, modkit and sturgeon commands, both confidence plots gain a point, and every 3rd iteration the CNV plot is rebuilt. The reads have a fake chr7 gain and chr10 loss.
+4. On the **Live Run** tab, click **Start monitoring**. Each new file becomes one iteration: the log shows the samtools, modkit and sturgeon commands, both confidence plots gain a point, and the CNV plot is rebuilt from all reads so far.
 
-The test passes when the iterations finish without `ERROR` lines in the log and the plots appear. The methylation calls are random, so the classification itself is meaningless: this tests the pipeline, never the classifier. Options: `--files N`, `--reads N` (per file) and `--interval SEC` (0 writes all files at once).
+The test passes when the iterations finish without `ERROR` lines in the log and the plots appear. By the last file (about 35,000 reads), the CNV plot should show the fake chr10 loss (in blue) and a raised chr7; the chr7 gain is close to the plot's ±0.5 threshold for colouring, so it may stay black. The methylation calls are random, so don't expect a confident class: the classification is meaningless, and the test checks the pipeline, never the classifier. Options: `--files N`, `--reads N` (per file) and `--interval SEC` (0 writes all files at once).
 
 ### Unit tests
 

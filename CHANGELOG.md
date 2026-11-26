@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
-- `tools/make_test_case.R`: tests an installation end to end. It builds a test case that uses the installed tools and reference files, then writes synthetic BAM files into its `bam_pass/` folder one at a time, so a run goes through samtools, modkit, Sturgeon v1 and v2 and the CNV plot.
+- `tools/make_test_case.R`: tests an installation end to end. It builds a test case that uses the installed tools and reference files, then writes synthetic BAM files into its `bam_pass/` folder one at a time, so a run goes through samtools, modkit, Sturgeon v1 and v2 and the CNV plot. Defaults to 5000 reads per file and rebuilds the CNV plot after every iteration, so the fake chr7 gain and chr10 loss show in the final plot.
 - `install.sh`: installs the system libraries, creates both conda environments (Sturgeon v1 needs Python < 3.10, sturgeon-v2 needs >= 3.10), runs `renv::restore()`, downloads the Sturgeon models and the Sturgeon v1 `R_scripts/` reference files from their original sources after the Sturgeon license is accepted, and writes `config_local.yml` with all tool and file paths. Downloads identify themselves as `Shiny-Sturgeon-installer`, because Zenodo refuses unnamed script requests from some networks.
 - `config_local.yml` is loaded on top of `config_default.yml`, so after `install.sh` the Setup tab only needs the MinKNOW folder, barcode and output folder.
 - `run_app.sh` starts the app and opens it in the browser.

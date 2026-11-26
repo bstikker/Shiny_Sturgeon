@@ -13,12 +13,14 @@
 # <folder>/case as the output folder, click "Load config.yml from output
 # folder", "Check installation", and then "Start monitoring" on the Live Run
 # tab. Every new file goes through samtools, modkit, Sturgeon v1 and v2, and
-# every 3rd iteration the CNV plot is rebuilt (the reads include a fake chr7
-# gain and chr10 loss).
+# the CNV plot is rebuilt after every iteration, so the last plot uses all
+# reads. The reads include a fake chr7 gain and chr10 loss; with the default
+# 5000 reads per file (about 35,000 in total, some 20 per 2 Mb CNV bin) the
+# chr10 loss shows clearly and chr7 is raised.
 #
 # Options:
 #   --files N        BAM files to write for barcode01 (default 6)
-#   --reads N        reads per file (default 1000)
+#   --reads N        reads per file (default 5000; each file takes ~10 s to write)
 #   --interval SEC   seconds between files (default 30; 0 writes all at once)
 #
 # The methylation calls are RANDOM: this tests that the pipeline runs, and
@@ -27,7 +29,7 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 usage <- "Usage: Rscript tools/make_test_case.R <new folder> [--files N] [--reads N] [--interval SEC]"
-opt <- list(files = 6, reads = 1000, interval = 30)
+opt <- list(files = 6, reads = 5000, interval = 30)
 folder <- NULL
 i <- 1
 while (i <= length(args)) {
@@ -80,7 +82,7 @@ cfg$output_folder <- case_dir
 cfg$barcode <- "01"
 cfg$use_unclassified <- TRUE
 cfg$poll_interval_sec <- 15L
-cfg$cnv_every_n_iterations <- 3L
+cfg$cnv_every_n_iterations <- 1L  # rebuild after every iteration, so the last plot has all reads
 config_path <- save_config(cfg, case_dir)
 
 cat("\nTest case created in ", root, "\n\n",

@@ -156,14 +156,14 @@ Before the first real case, check that the whole pipeline runs, using made-up re
    cd ~/Shiny_Sturgeon && Rscript tools/make_test_case.R ~/sturgeon_test
    ```
 
-   It creates the folder `sturgeon_test` in your home folder, with a fake MinKNOW folder and a ready-made configuration that uses your installed tools and files. Then it writes a new BAM file every 30 seconds, for about 3 minutes. Leave it running.
+   It creates the folder `sturgeon_test` in your home folder, with a fake MinKNOW folder and a ready-made configuration that uses your installed tools and files. Then it writes a new BAM file about every 40 seconds, for about 5 minutes. Leave it running.
 2. Open a **second** terminal (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> opens a new tab) and start the app: `~/Shiny_Sturgeon/run_app.sh`
 3. On the **Setup** tab, enter the output folder printed by the first terminal (it ends in `sturgeon_test/case`), and click **Load config.yml from output folder**, then **Check installation**. Everything should be green.
 4. On the **Live Run** tab, click **Start monitoring**.
 
-Within a minute or two the log shows the first iteration, and both confidence plots get their first point. Every new file adds an iteration, and after the 3rd one the CNV plot appears. The made-up reads have an extra copy of chromosome 7 and a lost copy of chromosome 10, which the CNV plot should show.
+Within a minute or two the log shows the first iteration, and both confidence plots get their first point. Every new file adds an iteration and updates the CNV plot. The made-up reads have an extra copy of chromosome 7 and a lost copy of chromosome 10. Once all files are processed, the CNV plot should show chromosome 10 lower than the rest (in blue) and chromosome 7 higher (possibly still black, because that gain is just at the threshold for colouring).
 
-**The test passed** when the iterations finish ("Iteration N complete." in the log) without `ERROR` lines. The tumour classes in the plots are meaningless, because the reads are random.
+**The test passed** when the iterations finish ("Iteration N complete." in the log) without `ERROR` lines. Don't expect a confident tumour class: the methylation in the reads is random, so the classes in the confidence plots are meaningless.
 
 When you're done, click **Stop**, then **Reset for new case**. You can delete the `sturgeon_test` folder.
 
