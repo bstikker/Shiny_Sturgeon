@@ -12,7 +12,7 @@ Shiny-Sturgeon watches a MinKNOW run folder as it fills up during sequencing, an
 
 ![The Live Run tab with synthetic demo data](docs/live-run-demo.png)
 
-*The Live Run tab, showing a [synthetic demo case](#testing-and-synthetic-data) (made-up scores, no CNV plot).*
+*The Live Run tab, showing a [synthetic demo case](#tools-for-developers) (made-up scores, no CNV plot).*
 
 ---
 
@@ -241,7 +241,26 @@ The public sturgeon-v2 release treats `-o` as an output folder and writes a tab-
 
 The repository contains no patient or sequencing data. Everything used for testing is synthetic.
 
-**Unit tests** check BAM discovery, result parsing for Sturgeon v1 and both sturgeon-v2 output formats, the progress table and resume round trip, colors, config validation, and the exact commands sent to samtools, modkit, sturgeon and sturgeon-v2 (using small stand-in scripts instead of the real tools). They need only the R packages, no external tools or model files:
+### Test your installation
+
+After `install.sh`, run a test case with synthetic reads through the whole pipeline (samtools, modkit, Sturgeon v1 and v2, CNV plot) before the first real case:
+
+1. In a terminal, create the test case. Pick a folder that doesn't exist yet:
+
+   ```bash
+   Rscript tools/make_test_case.R ~/sturgeon_test
+   ```
+
+   This writes `~/sturgeon_test/case/config.yml`, which uses your installed tools and reference files and points at `~/sturgeon_test/bam_pass/`. It then writes a synthetic BAM file into `bam_pass/barcode01/` every 30 seconds, like MinKNOW during a run. Leave it running.
+2. In a second terminal, start the app with `./run_app.sh`.
+3. On the **Setup** tab, enter `~/sturgeon_test/case` as the output folder (use the full path, e.g. `/home/<you>/sturgeon_test/case`), click **Load config.yml from output folder** and then **Check installation**. Every row should be green.
+4. On the **Live Run** tab, click **Start monitoring**. Each new file becomes one iteration: the log shows the samtools, modkit and sturgeon commands, both confidence plots gain a point, and every 3rd iteration the CNV plot is rebuilt. The reads have a fake chr7 gain and chr10 loss.
+
+The test passes when the iterations finish without `ERROR` lines in the log and the plots appear. The methylation calls are random, so the classification itself is meaningless: this tests the pipeline, never the classifier. Options: `--files N`, `--reads N` (per file) and `--interval SEC` (0 writes all files at once).
+
+### Unit tests
+
+The unit tests check BAM discovery, result parsing for Sturgeon v1 and both sturgeon-v2 output formats, the progress table and resume round trip, colors, config validation, the installation check, and the exact commands sent to samtools, modkit, sturgeon and sturgeon-v2 (using small stand-in scripts instead of the real tools). They need only the R packages, no external tools or model files:
 
 ```bash
 Rscript tests/run_tests.R
@@ -249,16 +268,16 @@ Rscript tests/run_tests.R
 
 They run on every push in GitHub Actions, together with a check that synthetic BAMs pass through samtools and modkit 0.5.0 the way the app runs them.
 
-**Synthetic BAMs.** [`tools/make_synthetic_bams.py`](tools/make_synthetic_bams.py) (needs `pip install pysam`) writes a MinKNOW-style `bam_pass/` folder: aligned reads on T2T-CHM13v2.0 contigs with 5mC/5hmC calls in MM/ML tags, optionally at the Sturgeon probe positions and with a fake copy-number gain or loss. With `--live-interval` it writes one file at a time, so you can watch the app pick them up:
+### Tools for developers
+
+**Synthetic BAMs.** [`tools/make_synthetic_bams.py`](tools/make_synthetic_bams.py), which `make_test_case.R` uses, writes a MinKNOW-style `bam_pass/` folder: aligned reads on T2T-CHM13v2.0 contigs with 5mC/5hmC calls in MM/ML tags, optionally at the Sturgeon probe positions and with a fake copy-number gain or loss. It needs only Python 3 and samtools. With `--live-interval` it writes one file at a time:
 
 ```bash
-python tools/make_synthetic_bams.py --out /tmp/synthetic/bam_pass \
+python3 tools/make_synthetic_bams.py --out /tmp/synthetic/bam_pass \
     --probes /path/to/probelocs_chm13.bed --gain 7 --loss 10 --live-interval 30
 ```
 
-The methylation calls are random, so a classification of this data is meaningless; use it to test the pipeline, never the classifier.
-
-**Demo case.** [`tools/make_demo_case.R`](tools/make_demo_case.R) builds a case folder with made-up confidence curves for both models (the screenshot above). Open it by entering `<folder>/case` as the output folder on the Setup tab, clicking **Load config.yml from output folder**, and then **Start monitoring**:
+**Demo case.** [`tools/make_demo_case.R`](tools/make_demo_case.R) builds a case with made-up confidence curves for both models, which the app shows as a resumed run without running the pipeline (the screenshot at the top). It uses the installed tool and reference paths, so open it after `install.sh`: enter `<folder>/case` as the output folder, click **Load config.yml from output folder**, and then **Start monitoring**:
 
 ```bash
 Rscript tools/make_demo_case.R /tmp/shiny_sturgeon_demo

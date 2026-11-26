@@ -67,11 +67,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install samtools, pysam and modkit
+      - name: Install samtools and modkit
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq samtools
-          pip install pysam
           curl -sSfL -o modkit.tgz \
             "https://github.com/nanoporetech/modkit/releases/download/${MODKIT_VERSION}/modkit_${MODKIT_VERSION}_u16_x86_64.tar.gz"
           mkdir -p modkit && tar -xzf modkit.tgz -C modkit

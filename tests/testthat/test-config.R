@@ -100,6 +100,8 @@ test_that("resolve_tool finds tools by full path, in extra PATH directories, and
   expect_equal(resolve_tool(""), "")
   expect_equal(resolve_tool(NA), "")
   expect_true(nzchar(resolve_tool("sh")))
+  expect_true(nzchar(resolve_tool("sh", list())))  # extra_path_dirs: [] read from YAML
+  expect_true(nzchar(resolve_tool("sh", NULL)))
 
   not_exec <- file.path(bin_dir, "not-exec"); file.create(not_exec)
   expect_equal(resolve_tool(not_exec), "")

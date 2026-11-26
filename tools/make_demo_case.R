@@ -1,7 +1,8 @@
 # =============================================================================
 # make_demo_case.R -- build a demo case folder that opens in the app with
-# populated confidence-over-time plots, without sequencing data, model files
-# or external tools.
+# populated confidence-over-time plots, without running the pipeline. It is
+# what the README screenshot shows. To test an installation for real, use
+# tools/make_test_case.R instead.
 #
 #   Rscript tools/make_demo_case.R /tmp/shiny_sturgeon_demo
 #
@@ -10,11 +11,12 @@
 # monitoring" on the Live Run tab. The app resumes the "previous run" it
 # finds in the folder and draws its plots.
 #
-# Everything here is SYNTHETIC: the scores are made-up curves, the
-# reference/model files are empty placeholders, and bam_pass/ is empty.
-# Starting the demo never runs samtools, modkit or sturgeon, because there
-# are no new BAM files to process. There is no CNV plot (that needs real
-# QDNAseq bins and BAM files).
+# The scores are made-up curves and bam_pass/ is empty, so starting the demo
+# never runs samtools, modkit or sturgeon. Tool and reference paths come
+# from this machine's installation (config_local.yml, written by
+# install.sh); reference files that aren't installed are replaced by empty
+# placeholders. "Start monitoring" checks that the tools exist, so it only
+# works after install.sh. There is no CNV plot (that needs BAM files).
 # =============================================================================
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -34,20 +36,37 @@ for (d in c(case_dir, ref_dir, file.path(bam_pass, "barcode01"), file.path(bam_p
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
 }
 
-# ---- placeholder reference files (they only need to exist) ------------------
-placeholders <- file.path(ref_dir, c("probes_PLACEHOLDER.bed", "v1_model_PLACEHOLDER.zip",
-                                     "v2_model_PLACEHOLDER.zip", "cnv_reference_PLACEHOLDER.bed"))
-for (f in placeholders) writeLines("synthetic demo placeholder -- not a real reference file", f)
-bins_rds <- file.path(ref_dir, "bins_PLACEHOLDER.rds")
-saveRDS("synthetic demo placeholder -- not real QDNAseq bins", bins_rds)
+# ---- installed paths, or placeholders where nothing is installed ------------
+source(file.path(app_dir, "config.R"))
+cfg <- load_config(app_dir)  # includes config_local.yml from install.sh, if any
+installed <- function(field) {
+  v <- cfg[[field]]
+  !is.null(v) && length(v) == 1 && nzchar(v) && file.exists(v)
+}
+placeholder <- function(field, name, writer = writeLines) {
+  if (installed(field)) return(cfg[[field]])
+  path <- file.path(ref_dir, name)
+  writer("synthetic demo placeholder -- not a real reference file", path)
+  path
+}
+cfg$probes_file <- placeholder("probes_file", "probes_PLACEHOLDER.bed")
+cfg$model_file_v1 <- placeholder("model_file_v1", "v1_model_PLACEHOLDER.zip")
+cfg$model_file_v2 <- placeholder("model_file_v2", "v2_model_PLACEHOLDER.zip")
+cfg$cnvplot_reffile <- placeholder("cnvplot_reffile", "cnv_reference_PLACEHOLDER.bed")
+cfg$bins_rds <- placeholder("bins_rds", "bins_PLACEHOLDER.rds", function(x, f) saveRDS(x, f))
 
 v1_classes <- c("Glioblastoma - GBM - RTK II", "Glioblastoma - GBM - RTK I",
                 "Glioma IDH - A IDH - HG", "Glioma IDH - O IDH - O IDH",
                 "Glioblastoma - DMG - K27")
 color_translation <- setNames(as.list(c("#c0392b", "#e67e22", "#2471a3", "#17a589", "#7d3c98")),
                               v1_classes)
-color_rds <- file.path(ref_dir, "color_translation_demo.rds")
-saveRDS(color_translation, color_rds)
+# the real color_translation.rds (from install.sh) uses these same class names
+if (installed("color_translation_rds")) {
+  color_rds <- cfg$color_translation_rds
+} else {
+  color_rds <- file.path(ref_dir, "color_translation_demo.rds")
+  saveRDS(color_translation, color_rds)
+}
 
 # ---- synthetic confidence-over-time curves ----------------------------------
 # The top class climbs as reads accumulate, the others share what is left.
@@ -84,23 +103,19 @@ for (i in seq_len(n_iter)) dir.create(file.path(case_dir, paste0("iteration", i)
 writeLines(file.path(bam_pass, "barcode01", sprintf("synthetic_demo_%02d.bam", seq_len(n_iter))),
            file.path(case_dir, "processed_files.txt"))
 
-cfg <- yaml::read_yaml(file.path(app_dir, "config_default.yml"))
 cfg$bam_pass_folder <- bam_pass
 cfg$output_folder <- case_dir
-cfg$poll_interval_sec <- 60
-cfg$samtools_bin <- "demo-not-used"
-cfg$modkit_bin <- "demo-not-used"
-cfg$sturgeon_bin <- "demo-not-used"
-cfg$sturgeon_v2_bin <- "demo-not-used"
-cfg$probes_file <- placeholders[1]
-cfg$model_file_v1 <- placeholders[2]
-cfg$model_file_v2 <- placeholders[3]
-cfg$cnvplot_reffile <- placeholders[4]
-cfg$bins_rds <- bins_rds
+cfg$poll_interval_sec <- 60L
 cfg$color_translation_rds <- color_rds
-cfg$class_mapping_v2 <- file.path(app_dir, "class_mapping_v2.csv")
-yaml::write_yaml(cfg, file.path(case_dir, "config.yml"))
+if (!nzchar(if (is.null(cfg$class_mapping_v2)) "" else cfg$class_mapping_v2)) cfg$class_mapping_v2 <- file.path(app_dir, "class_mapping_v2.csv")
+invisible(save_config(cfg, case_dir))
 
+tools_found <- all(vapply(c("samtools_bin", "modkit_bin", "sturgeon_bin", "sturgeon_v2_bin"),
+                          function(f) nzchar(resolve_tool(cfg[[f]], unlist(cfg$extra_path_dirs))), logical(1)))
 cat("Demo case written to", root, "\n",
     "In the app: Setup tab -> output folder =", case_dir, "\n",
     "-> 'Load config.yml from output folder' -> Live Run tab -> 'Start monitoring'\n")
+if (!tools_found) {
+  cat("Note: samtools, modkit, sturgeon or sturgeon-v2 isn't installed here, so 'Start monitoring'\n",
+      "will refuse to start. Run ./install.sh first.\n")
+}
