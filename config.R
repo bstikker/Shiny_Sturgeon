@@ -147,6 +147,7 @@ resolve_tool <- function(bin, extra_path_dirs = character(0)) {
     ok <- file.exists(bin) && !dir.exists(bin) && file.access(bin, 1) == 0
     return(if (ok) bin else "")
   }
+  extra_path_dirs <- as.character(unlist(extra_path_dirs))  # YAML's [] arrives as an empty list
   extra_path_dirs <- extra_path_dirs[!is.na(extra_path_dirs) & nzchar(extra_path_dirs)]
   for (d in path.expand(extra_path_dirs)) {
     candidate <- file.path(d, bin)

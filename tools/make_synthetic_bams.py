@@ -28,21 +28,19 @@ Examples
     # is monitoring the folder
     python tools/make_synthetic_bams.py --out /tmp/demo/bam_pass --live-interval 30
 
-Requires pysam (`pip install pysam`).
+Needs only Python 3 and samtools (both in the `sturgeon` conda environment
+that install.sh creates): reads are written as SAM text and converted to BAM
+by samtools.
 """
 
 import argparse
-import array
 import bisect
 import os
 import random
+import shutil
+import subprocess
 import sys
 import time
-
-try:
-    import pysam
-except ImportError:  # pragma: no cover
-    sys.exit("pysam is required: pip install pysam")
 
 # T2T-CHM13v2.0 contig lengths (chm13v2.0.fa)
 CHM13_LENGTHS = {
@@ -80,6 +78,7 @@ def parse_args(argv=None):
                    help="omit read sequences and methylation tags (much smaller files; "
                         "enough for CNV plots, not for modkit)")
     p.add_argument("--seed", type=int, default=1, help="random seed (same seed, same files)")
+    p.add_argument("--samtools", default="samtools", help="samtools executable")
     p.add_argument("--live-interval", type=float, default=0,
                    help="seconds to wait between files, to simulate a live run")
     return p.parse_args(argv)
@@ -126,10 +125,10 @@ class ReadFactory:
         return f"chr{chrom}" if self.args.chrom_style == "chr" else chrom
 
     def header(self):
-        sq = [{"SN": self.contig_name(c), "LN": CHM13_LENGTHS[c]} for c in CHM13_LENGTHS]
-        return {"HD": {"VN": "1.6", "SO": "coordinate"}, "SQ": sq,
-                "PG": [{"ID": "make_synthetic_bams", "PN": "make_synthetic_bams.py",
-                        "CL": " ".join(sys.argv)}]}
+        lines = ["@HD\tVN:1.6\tSO:coordinate"]
+        lines += [f"@SQ\tSN:{self.contig_name(c)}\tLN:{CHM13_LENGTHS[c]}" for c in CHM13_LENGTHS]
+        lines.append("@PG\tID:make_synthetic_bams\tPN:make_synthetic_bams.py\tCL:" + " ".join(sys.argv))
+        return "\n".join(lines) + "\n"
 
     def site_beta(self, chrom, pos):
         r = random.Random(f"{self.site_seed}:{chrom}:{pos}").random()
@@ -156,22 +155,17 @@ class ReadFactory:
                 last = o
         return kept
 
-    def make_read(self, header, name):
+    def make_read(self, name):
+        """Return (sort key, SAM line) for one forward-strand, fully aligned read."""
         chrom = self.rng.choices(self.chroms, weights=self.weights)[0]
         length = max(200, int(self.rng.gauss(self.args.read_length, self.args.read_length * 0.3)))
         start = self.rng.randint(0, CHM13_LENGTHS[chrom] - length - 1)
-
-        seg = pysam.AlignedSegment(header)
-        seg.query_name = name
-        seg.flag = 0  # forward strand, primary, mapped
-        seg.reference_name = self.contig_name(chrom)
-        seg.reference_start = start
-        seg.mapping_quality = 60
-        seg.cigartuples = [(0, length)]  # M
+        key = (list(CHM13_LENGTHS).index(chrom), start)
+        # flag 0 = forward strand, primary, mapped; SAM positions are 1-based
+        fields = [name, "0", self.contig_name(chrom), str(start + 1), "60", f"{length}M", "*", "0", "0"]
 
         if self.args.no_sequence:
-            seg.query_sequence = None
-            return seg
+            return key, "\t".join(fields + ["*", "*"])
 
         offsets = self.cpg_offsets(chrom, start, length)
         # random sequence without any C, then a "CG" at every called site, so
@@ -179,8 +173,7 @@ class ReadFactory:
         seq = [self.rng.choice("AGT") for _ in range(length)]
         for o in offsets:
             seq[o], seq[o + 1] = "C", "G"
-        seg.query_sequence = "".join(seq)
-        seg.query_qualities = pysam.qualitystring_to_array("5" * length)  # Q20
+        fields += ["".join(seq), "5" * length]  # quality "5" = Q20
 
         if offsets:
             h_probs, m_probs = [], []
@@ -199,27 +192,27 @@ class ReadFactory:
                 h_probs.append(h)
                 m_probs.append(m)
             skips = ",".join(["0"] * len(offsets))
-            seg.set_tag("MM", f"C+h?,{skips};C+m?,{skips};", value_type="Z")
-            seg.set_tag("ML", array.array("B", h_probs + m_probs))  # uint8 probabilities
-        return seg
+            fields.append(f"MM:Z:C+h?,{skips};C+m?,{skips};")
+            fields.append("ML:B:C," + ",".join(map(str, h_probs + m_probs)))  # uint8 probabilities
+        return key, "\t".join(fields)
 
 
 def write_bam(factory, path, n_reads, read_prefix):
-    header = pysam.AlignmentHeader.from_dict(factory.header())
-    reads = [factory.make_read(header, f"{read_prefix}_{i:06d}") for i in range(n_reads)]
-    reads.sort(key=lambda r: (r.reference_id, r.reference_start))
+    reads = [factory.make_read(f"{read_prefix}_{i:06d}") for i in range(n_reads)]
+    reads.sort(key=lambda r: r[0])
+    sam = factory.header() + "".join(line + "\n" for _, line in reads)
     # write under a hidden name first (R's list.files() skips dotfiles), so
     # the app never picks up a half-written file
     tmp = os.path.join(os.path.dirname(path), "." + os.path.basename(path) + ".tmp")
-    with pysam.AlignmentFile(tmp, "wb", header=header) as out:
-        for r in reads:
-            out.write(r)
+    subprocess.run([factory.args.samtools, "view", "-b", "-o", tmp, "-"], input=sam.encode(), check=True)
     os.replace(tmp, path)  # appear in the folder only once complete, like a finished MinKNOW file
-    pysam.index(path)
+    subprocess.run([factory.args.samtools, "index", path], check=True)
 
 
 def main(argv=None):
     args = parse_args(argv)
+    if shutil.which(args.samtools) is None:
+        sys.exit(f"samtools not found ({args.samtools}); pass its full path with --samtools")
     args.barcode = args.barcode.zfill(2)
     args.gain = [c.replace("chr", "") for c in args.gain]
     args.loss = [c.replace("chr", "") for c in args.loss]
